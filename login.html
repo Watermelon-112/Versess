@@ -11,7 +11,9 @@
   <meta name="apple-mobile-web-app-title" content="Verses" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="app.js" defer></script>
+  <script src="db.js" defer></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -45,38 +47,19 @@
       <form id="login-form" onsubmit="handleLogin(event)" novalidate>
         <div class="form-group">
           <label class="form-label" for="email">Email address</label>
-          <input
-            class="form-input"
-            type="email"
-            id="email"
-            placeholder="you@example.com"
-            autocomplete="email"
-            required
-          />
+          <input class="form-input" type="email" id="email" placeholder="you@example.com" autocomplete="email" required />
         </div>
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input
-            class="form-input"
-            type="password"
-            id="password"
-            placeholder="Your password"
-            autocomplete="current-password"
-            required
-          />
+          <input class="form-input" type="password" id="password" placeholder="Your password" autocomplete="current-password" required />
         </div>
-
-        <button type="submit" class="btn btn-primary btn-full" id="submit-btn">
-          Sign in
-        </button>
+        <button type="submit" class="btn btn-primary btn-full" id="submit-btn">Sign in</button>
       </form>
 
       <div class="auth-divider">or</div>
 
       <div style="text-align:center; margin-bottom: 0.5rem;">
-        <button class="btn btn-secondary btn-full" onclick="demoLogin()">
-          ✦ Try a demo account
-        </button>
+        <button class="btn btn-secondary btn-full" onclick="demoLogin()">✦ Try a demo account</button>
       </div>
 
       <div class="auth-switch">
@@ -91,56 +74,45 @@
       VersesApp.redirectIfLoggedIn();
     });
 
-    function handleLogin(e) {
+    async function handleLogin(e) {
       e.preventDefault();
-
       const email    = document.getElementById('email').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
       const errEl    = document.getElementById('error-msg');
       const btn      = document.getElementById('submit-btn');
 
       errEl.style.display = 'none';
+      if (!email || !password) { showErr('Please fill in all fields.'); return; }
 
-      if (!email || !password) {
-        showError('Please fill in all fields.'); return;
-      }
-
-      const users = VersesApp.getUsers();
-      const user  = users.find(u => u.email === email && u.password === password);
-
-      if (!user) {
-        showError('Incorrect email or password. Please try again.'); return;
-      }
-
-      btn.textContent = '✓ Signing you in…';
+      btn.textContent = 'Signing in…';
       btn.disabled = true;
 
-      VersesApp.setSession({ id: user.id, name: user.name, email: user.email });
-      setTimeout(() => { window.location.href = 'feed.html'; }, 800);
+      const { profile, error } = await VersesDB.dbLogin(email, password);
+      if (error) { showErr(error); btn.textContent = 'Sign in'; btn.disabled = false; return; }
 
-      function showError(msg) {
-        errEl.textContent = msg;
-        errEl.style.display = 'block';
-      }
+      VersesApp.setSession({ id: profile.id, name: profile.name, email: profile.email });
+      window.location.href = 'feed.html';
+
+      function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
     }
 
-    function demoLogin() {
-      const users = VersesApp.getUsers();
-      let demo = users.find(u => u.email === 'demo@verses.app');
+    async function demoLogin() {
+      const btn = document.querySelector('.btn-secondary');
+      btn.textContent = 'Setting up demo…';
+      btn.disabled = true;
 
-      if (!demo) {
-        demo = {
-          id: 9999,
-          name: 'Guest Poet',
-          email: 'demo@verses.app',
-          password: 'demo1234',
-          createdAt: new Date().toISOString()
-        };
-        users.push(demo);
-        VersesApp.saveUsers(users);
+      const demoEmail = 'demo@verses.app';
+      const demoName  = 'Guest Poet';
+      const demoPw    = 'demo1234';
+
+      let { profile } = await VersesDB.dbLogin(demoEmail, demoPw);
+      if (!profile) {
+        const res = await VersesDB.dbSignup(demoEmail, demoName, demoPw);
+        profile = res.profile;
       }
+      if (!profile) { btn.textContent = '✦ Try a demo account'; btn.disabled = false; return; }
 
-      VersesApp.setSession({ id: demo.id, name: demo.name, email: demo.email });
+      VersesApp.setSession({ id: profile.id, name: profile.name, email: profile.email });
       window.location.href = 'feed.html';
     }
   </script>
