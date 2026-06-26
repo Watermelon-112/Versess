@@ -317,12 +317,9 @@
     const container = document.getElementById('feed-container');
     container.innerHTML = '';
 
-    // Mix: real Supabase profiles first, then demo profiles as filler
-    const realCards  = allProfiles.map(profileToCard);
-    const demoCards  = VersesApp.DEMO_PROFILES;
-    const combined   = [...realCards, ...demoCards];
+    const cards = allProfiles.map(profileToCard);
 
-    if (combined.length === 0) {
+    if (cards.length === 0) {
       container.innerHTML = `<div class="empty-state">
         <div class="empty-icon">✦</div>
         <h3 class="empty-title">You're the first here</h3>
@@ -331,7 +328,7 @@
       return;
     }
 
-    combined.forEach((profile, idx) => {
+    cards.forEach((profile, idx) => {
       container.appendChild(buildCard(profile, idx));
     });
 
@@ -447,10 +444,7 @@
     container.innerHTML = '<div class="empty-state"><div class="empty-icon" style="font-size:2rem;">⏳</div><p style="color:var(--text-light);font-size:0.9rem;">Loading…</p></div>';
 
     const matched = await VersesDB.dbGetMatches(SESSION.id);
-    // Also include demo profiles that were liked
-    const demoPids = new Set(VersesApp.DEMO_PROFILES.map(p => String(p.id)));
-    const demoMatched = VersesApp.DEMO_PROFILES.filter(p => Object.keys(myLikes).some(k => k.startsWith(`${p.id}_`)));
-    const allMatched  = [...matched, ...demoMatched];
+    const allMatched = matched;
 
     container.innerHTML = '';
 
