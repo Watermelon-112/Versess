@@ -11,7 +11,9 @@
   <meta name="apple-mobile-web-app-title" content="Verses" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="app.js" defer></script>
+  <script src="db.js" defer></script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -46,38 +48,16 @@
       <form id="signup-form" onsubmit="handleSignup(event)" novalidate>
         <div class="form-group">
           <label class="form-label" for="name">Your name</label>
-          <input
-            class="form-input"
-            type="text"
-            id="name"
-            placeholder="How should people know you?"
-            autocomplete="name"
-            required
-          />
+          <input class="form-input" type="text" id="name" placeholder="How should people know you?" autocomplete="name" required />
         </div>
         <div class="form-group">
           <label class="form-label" for="email">Email address</label>
-          <input
-            class="form-input"
-            type="email"
-            id="email"
-            placeholder="you@example.com"
-            autocomplete="email"
-            required
-          />
+          <input class="form-input" type="email" id="email" placeholder="you@example.com" autocomplete="email" required />
         </div>
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input
-            class="form-input"
-            type="password"
-            id="password"
-            placeholder="At least 6 characters"
-            autocomplete="new-password"
-            required
-          />
+          <input class="form-input" type="password" id="password" placeholder="At least 6 characters" autocomplete="new-password" required />
         </div>
-
         <button type="submit" class="btn btn-primary btn-full" id="submit-btn">
           ✦ Create my account
         </button>
@@ -95,9 +75,8 @@
       VersesApp.redirectIfLoggedIn();
     });
 
-    function handleSignup(e) {
+    async function handleSignup(e) {
       e.preventDefault();
-
       const name     = document.getElementById('name').value.trim();
       const email    = document.getElementById('email').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
@@ -108,38 +87,24 @@
       errEl.style.display = 'none';
       okEl.style.display  = 'none';
 
-      if (!name) {
-        showError('Please enter your name.'); return;
-      }
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        showError('Please enter a valid email address.'); return;
-      }
-      if (password.length < 6) {
-        showError('Password must be at least 6 characters.'); return;
-      }
+      if (!name) { showErr('Please enter your name.'); return; }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showErr('Please enter a valid email.'); return; }
+      if (password.length < 6) { showErr('Password must be at least 6 characters.'); return; }
 
-      const users = VersesApp.getUsers();
-      if (users.find(u => u.email === email)) {
-        showError('An account with this email already exists.'); return;
-      }
-
-      const newUser = { id: Date.now(), name, email, password, createdAt: new Date().toISOString() };
-      users.push(newUser);
-      VersesApp.saveUsers(users);
-
-      okEl.textContent = 'Account created! Redirecting you to your feed…';
-      okEl.style.display = 'block';
-      btn.textContent = '✓ Success!';
+      btn.textContent = 'Creating account…';
       btn.disabled = true;
 
-      VersesApp.setSession({ id: newUser.id, name: newUser.name, email: newUser.email });
+      const { profile, error } = await VersesDB.dbSignup(email, name, password);
+      if (error) { showErr(error); btn.textContent = '✦ Create my account'; btn.disabled = false; return; }
 
-      setTimeout(() => { window.location.href = 'feed.html'; }, 1200);
+      okEl.textContent = 'Account created! Taking you to your feed…';
+      okEl.style.display = 'block';
+      btn.textContent = '✓ Done!';
 
-      function showError(msg) {
-        errEl.textContent = msg;
-        errEl.style.display = 'block';
-      }
+      VersesApp.setSession({ id: profile.id, name: profile.name, email: profile.email });
+      setTimeout(() => { window.location.href = 'feed.html'; }, 1000);
+
+      function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
     }
   </script>
 
