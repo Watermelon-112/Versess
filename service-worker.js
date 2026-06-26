@@ -1,4 +1,4 @@
-const CACHE_NAME = 'verses-v1';
+const CACHE_NAME = 'verses-v2';
 
 const PRECACHE_ASSETS = [
   '/',
@@ -8,6 +8,7 @@ const PRECACHE_ASSETS = [
   '/feed.html',
   '/styles.css',
   '/app.js',
+  '/db.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
