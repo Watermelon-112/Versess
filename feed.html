@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verses</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#4A2C2A" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Verses" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="app.js" defer></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js');
+      });
+    }
+  </script>
+</head>
+<body>
+
+  <!-- TOP NAV -->
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">VERSES</a>
+    <div class="nav-links">
+      <span id="nav-user" style="font-size:0.85rem; color: var(--text-mid); margin-right: 0.5rem;"></span>
+      <button class="btn btn-ghost" onclick="VersesApp.logout()">Sign out</button>
+    </div>
+  </nav>
+
+  <!-- ══ VIEWS ══ -->
+
+  <!-- DISCOVER VIEW -->
+  <div class="view active" id="view-discover">
+    <div class="feed-wrapper">
+      <div class="feed-header">
+        <p class="feed-greeting" id="feed-greeting">Good morning,</p>
+        <h2 class="feed-title">Discover Voices</h2>
+      </div>
+      <div class="feed-container" id="feed-container"></div>
+    </div>
+  </div>
+
+  <!-- MATCHES VIEW -->
+  <div class="view" id="view-matches">
+    <div class="feed-wrapper">
+      <div class="feed-header">
+        <p class="feed-greeting">Your connections</p>
+        <h2 class="feed-title">Matches</h2>
+      </div>
+      <div class="feed-container" id="matches-container"></div>
+    </div>
+  </div>
+
+  <!-- MESSAGES VIEW -->
+  <div class="view" id="view-messages">
+    <!-- Inbox list -->
+    <div id="inbox-screen" class="feed-wrapper">
+      <div class="feed-header">
+        <p class="feed-greeting">Your conversations</p>
+        <h2 class="feed-title">Messages</h2>
+      </div>
+      <div class="feed-container" id="inbox-container"></div>
+    </div>
+    <!-- Chat screen -->
+    <div id="chat-screen" class="chat-wrapper" style="display:none;">
+      <div class="chat-topbar">
+        <button class="chat-back-btn" onclick="closeChat()">← Back</button>
+        <div class="chat-topbar-info">
+          <span class="chat-topbar-name" id="chat-name"></span>
+          <span class="chat-topbar-sub" id="chat-sub"></span>
+        </div>
+        <div class="chat-topbar-avatar" id="chat-avatar"></div>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-bar">
+        <textarea
+          class="chat-input"
+          id="chat-input"
+          placeholder="Write your verse…"
+          rows="1"
+          onkeydown="chatKeydown(event)"
+        ></textarea>
+        <button class="chat-send-btn" onclick="sendMessage()">✦</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE VIEW -->
+  <div class="view" id="view-profile">
+    <div class="feed-wrapper">
+      <div class="feed-header">
+        <p class="feed-greeting">Your story</p>
+        <h2 class="feed-title">My Profile</h2>
+      </div>
+      <div class="feed-container">
+
+        <!-- Avatar -->
+        <div class="profile-avatar-block">
+          <div class="profile-avatar-circle" id="profile-avatar-circle"></div>
+          <div>
+            <p class="profile-avatar-name" id="profile-avatar-name"></p>
+            <p class="profile-avatar-sub" id="profile-avatar-sub"></p>
+          </div>
+        </div>
+
+        <!-- Edit basic info -->
+        <div class="profile-card" style="overflow:visible;">
+          <div class="prompt-block" style="border-bottom:none;">
+            <p class="prompt-question" style="margin-bottom:1rem;">Basic info</p>
+            <div class="form-group">
+              <label class="form-label">Display name</label>
+              <input class="form-input" id="p-name" type="text" />
+            </div>
+            <div style="display:flex; gap:0.8rem;">
+              <div class="form-group" style="flex:1;">
+                <label class="form-label">Age</label>
+                <input class="form-input" id="p-age" type="number" min="18" max="99" />
+              </div>
+              <div class="form-group" style="flex:2;">
+                <label class="form-label">Location</label>
+                <input class="form-input" id="p-location" type="text" placeholder="City, State" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit prompts -->
+        <div class="profile-card" style="overflow:visible;">
+          <div class="prompt-block" style="border-bottom:1px solid var(--soft-beige); padding-bottom:1.2rem; margin-bottom:0;">
+            <p class="prompt-question" style="margin-bottom:0.8rem;">My verses</p>
+            <p style="font-size:0.82rem; color:var(--text-light); margin-bottom:1rem; font-style:italic;">These prompts are what others see and connect with.</p>
+          </div>
+
+          <div class="prompt-block" id="prompt-editor-1"></div>
+          <div class="prompt-block" id="prompt-editor-2"></div>
+          <div class="prompt-block" style="border-bottom:none;" id="prompt-editor-3"></div>
+        </div>
+
+        <button class="btn btn-primary btn-full" onclick="saveProfile()" style="margin-top:0.5rem;">
+          ✦ Save my profile
+        </button>
+
+        <button class="btn btn-secondary btn-full" onclick="VersesApp.logout()" style="margin-top:0.8rem;">
+          Sign out
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BOTTOM NAV ══ -->
+  <nav class="feed-nav">
+    <button class="feed-nav-btn active" id="nav-btn-discover" onclick="switchTab('discover')">
+      <span class="nav-icon">✦</span>
+      Discover
+    </button>
+    <button class="feed-nav-btn" id="nav-btn-matches" onclick="switchTab('matches')">
+      <span class="nav-icon">💌</span>
+      Matches
+      <span class="nav-badge" id="matches-badge" style="display:none;"></span>
+    </button>
+    <button class="feed-nav-btn" id="nav-btn-messages" onclick="switchTab('messages')">
+      <span class="nav-icon">✉️</span>
+      Messages
+      <span class="nav-badge" id="messages-badge" style="display:none;"></span>
+    </button>
+    <button class="feed-nav-btn" id="nav-btn-profile" onclick="switchTab('profile')">
+      <span class="nav-icon">☕</span>
+      Profile
+    </button>
+  </nav>
+
+  <!-- REPLY MODAL -->
+  <div class="modal-overlay" id="reply-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <h3 class="modal-title" id="modal-title">Reply to this verse</h3>
+      <p class="modal-sub" id="modal-sub"></p>
+      <textarea
+        class="modal-textarea"
+        id="modal-textarea"
+        placeholder="Write something honest, something real…"
+        rows="4"
+      ></textarea>
+      <div class="modal-actions">
+        <button class="btn btn-primary" style="flex:1" onclick="sendReply()">✦ Send reply</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="verses-toast"></div>
+
+  <script>
+  // ══ STATE ══
+  let SESSION = null;
+  let currentReplyContext = null;
+  let activeChatProfileId = null;
+  const AUTO_RESPONSES = [
+    "That really moved me — I haven't heard it put that way before.",
+    "Honestly? You just said everything I've been trying to write for weeks.",
+    "I love that. Tell me more about that part of you.",
+    "You have a beautiful way with words. I'd love to hear more.",
+    "This is the kind of conversation I was hoping to have here.",
+    "I feel like you just read a page from my own journal.",
+    "Okay, I'm completely here for this conversation.",
+  ];
+
+  // ══ INIT ══
+  document.addEventListener('DOMContentLoaded', () => {
+    SESSION = VersesApp.requireAuth();
+    if (!SESSION) return;
+
+    document.getElementById('nav-user').textContent = SESSION.name;
+    const hour = new Date().getHours();
+    const greet = hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
+    document.getElementById('feed-greeting').textContent = `${greet} ${SESSION.name.split(' ')[0]}.`;
+
+    renderFeed();
+    updateBadges();
+
+    document.getElementById('reply-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeModal();
+    });
+  });
+
+  // ══ TAB NAVIGATION ══
+  function switchTab(tab) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.feed-nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`view-${tab}`).classList.add('active');
+    document.getElementById(`nav-btn-${tab}`).classList.add('active');
+
+    if (tab === 'matches')  renderMatches();
+    if (tab === 'messages') renderInbox();
+    if (tab === 'profile')  renderProfileEditor();
+  }
+
+  // ══ BADGE COUNTS ══
+  function updateBadges() {
+    const likes    = VersesApp.getLikes();
+    const userKey  = `user_${SESSION.id}`;
+    const userLikes = likes[userKey] || {};
+    const likedProfiles = getMatchedProfiles(userLikes);
+
+    const matchBadge = document.getElementById('matches-badge');
+    if (likedProfiles.length > 0) {
+      matchBadge.textContent = likedProfiles.length;
+      matchBadge.style.display = 'inline-flex';
+    } else {
+      matchBadge.style.display = 'none';
+    }
+
+    const threads = getThreads();
+    const unread  = threads.filter(t => t.unread).length;
+    const msgBadge = document.getElementById('messages-badge');
+    if (unread > 0) {
+      msgBadge.textContent = unread;
+      msgBadge.style.display = 'inline-flex';
+    } else {
+      msgBadge.style.display = 'none';
+    }
+  }
+
+  // ══ HELPERS ══
+  function getMatchedProfiles(userLikes) {
+    const likedProfileIds = new Set(
+      Object.keys(userLikes).map(k => parseInt(k.split('_')[0]))
+    );
+    return VersesApp.DEMO_PROFILES.filter(p => likedProfileIds.has(p.id));
+  }
+
+  function getMessages() {
+    return JSON.parse(localStorage.getItem(`verses_messages_${SESSION.id}`) || '{}');
+  }
+  function saveMessages(msgs) {
+    localStorage.setItem(`verses_messages_${SESSION.id}`, JSON.stringify(msgs));
+  }
+  function getThreads() {
+    const msgs = getMessages();
+    const likes = VersesApp.getLikes();
+    const userLikes = (likes[`user_${SESSION.id}`]) || {};
+    const matched = getMatchedProfiles(userLikes);
+    return matched.map(p => {
+      const thread = msgs[p.id] || [];
+      const last = thread[thread.length - 1];
+      return {
+        profile: p,
+        messages: thread,
+        lastMsg: last ? last.text : null,
+        lastTime: last ? last.time : null,
+        unread: last && last.sender === 'them' && !last.read,
+      };
+    });
+  }
+  function getUserProfile() {
+    const saved = JSON.parse(localStorage.getItem(`verses_profile_${SESSION.id}`) || 'null');
+    return saved || {
+      name: SESSION.name,
+      age: '',
+      location: '',
+      prompts: [
+        { q: 'A line I live by', a: '' },
+        { q: 'My love language', a: '' },
+        { q: 'I\'m looking for', a: '' },
+      ]
+    };
+  }
+  function saveUserProfile(data) {
+    localStorage.setItem(`verses_profile_${SESSION.id}`, JSON.stringify(data));
+  }
+  function timeAgo(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  }
+
+  // ══ DISCOVER ══
+  function renderFeed() {
+    const container = document.getElementById('feed-container');
+    const likes     = VersesApp.getLikes();
+    const userKey   = `user_${SESSION.id}`;
+    const userLikes = likes[userKey] || {};
+    container.innerHTML = '';
+    VersesApp.DEMO_PROFILES.forEach((profile, idx) => {
+      container.appendChild(buildCard(profile, userLikes, idx));
+    });
+    const end = document.createElement('div');
+    end.className = 'empty-state';
+    end.innerHTML = `
+      <div class="empty-icon">✦</div>
+      <h3 class="empty-title">You've seen all the voices</h3>
+      <p class="empty-sub">More connections arrive every day.<br>Come back soon — the best verse is still unwritten.</p>
+    `;
+    container.appendChild(end);
+  }
+
+  function buildCard(profile, userLikes, animDelay) {
+    const card = document.createElement('div');
+    card.className = 'profile-card';
+    card.style.animationDelay = `${animDelay * 0.08}s`;
+
+    card.innerHTML = `
+      <div class="profile-photo-placeholder" style="background:${profile.gradient}">
+        <span class="initials">${profile.initials}</span>
+        <span class="photo-sub">${profile.name} · ${profile.age}</span>
+      </div>
+      <div class="profile-info">
+        <span class="profile-name">${profile.name}</span>
+        <span class="profile-age">${profile.age}</span>
+        <span class="profile-location">📍 ${profile.location}</span>
+      </div>
+    `;
+
+    profile.prompts.forEach((prompt, pIdx) => {
+      const likeKey = `${profile.id}_${pIdx}`;
+      const isLiked = !!userLikes[likeKey];
+      const block = document.createElement('div');
+      block.className = 'prompt-block';
+      block.innerHTML = `
+        <p class="prompt-question">${prompt.q}</p>
+        <p class="prompt-answer">${prompt.a}</p>
+        <div style="display:flex;gap:0.6rem;margin-top:0.9rem;">
+          <button class="action-btn btn-like${isLiked ? ' liked' : ''}" style="flex:1" data-like="${profile.id}_${pIdx}">
+            ${isLiked ? '♥ Liked' : '♥ Like Verse'}
+          </button>
+          <button class="action-btn btn-reply" style="flex:1" data-reply="${profile.id}_${pIdx}">
+            ✦ Reply
+          </button>
+        </div>
+      `;
+      block.querySelector('[data-like]').addEventListener('click', (e) => {
+        toggleLike(profile, pIdx, e.currentTarget);
+      });
+      block.querySelector('[data-reply]').addEventListener('click', () => {
+        openModal(profile, prompt);
+      });
+      card.appendChild(block);
+    });
+
+    const passRow = document.createElement('div');
+    passRow.className = 'card-actions';
+    passRow.style.justifyContent = 'center';
+    const passBtn = document.createElement('button');
+    passBtn.className = 'action-btn btn-pass';
+    passBtn.textContent = '✕ Pass';
+    passBtn.addEventListener('click', () => {
+      card.style.display = 'none';
+      VersesApp.showToast(`Passed on ${profile.name}`);
+    });
+    passRow.appendChild(passBtn);
+    card.appendChild(passRow);
+    return card;
+  }
+
+  function toggleLike(profile, pIdx, btn) {
+    const likes   = VersesApp.getLikes();
+    const userKey = `user_${SESSION.id}`;
+    const likeKey = `${profile.id}_${pIdx}`;
+    if (!likes[userKey]) likes[userKey] = {};
+
+    if (likes[userKey][likeKey]) {
+      delete likes[userKey][likeKey];
+      btn.classList.remove('liked');
+      btn.innerHTML = '♥ Like Verse';
+      VersesApp.showToast('Like removed');
+    } else {
+      likes[userKey][likeKey] = { profileId: profile.id, promptIdx: pIdx, likedAt: new Date().toISOString() };
+      btn.classList.add('liked');
+      btn.innerHTML = '♥ Liked';
+      VersesApp.showToast(`You liked ${profile.name}'s verse ♥`);
+    }
+    VersesApp.saveLikes(likes);
+    updateBadges();
+  }
+
+  // ══ MATCHES ══
+  function renderMatches() {
+    const container = document.getElementById('matches-container');
+    const likes     = VersesApp.getLikes();
+    const userLikes = (likes[`user_${SESSION.id}`]) || {};
+    const matched   = getMatchedProfiles(userLikes);
+
+    container.innerHTML = '';
+
+    if (matched.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">💌</div>
+          <h3 class="empty-title">No matches yet</h3>
+          <p class="empty-sub">Like a verse in the Discover tab to start a connection.</p>
+        </div>`;
+      return;
+    }
+
+    matched.forEach(profile => {
+      const msgs    = getMessages();
+      const thread  = msgs[profile.id] || [];
+      const lastMsg = thread[thread.length - 1];
+
+      const card = document.createElement('div');
+      card.className = 'match-card';
+      card.innerHTML = `
+        <div class="match-avatar" style="background:${profile.gradient}">${profile.initials}</div>
+        <div class="match-info">
+          <div class="match-name-row">
+            <span class="match-name">${profile.name}</span>
+            <span class="match-age">${profile.age} · ${profile.location}</span>
+          </div>
+          <p class="match-preview">${lastMsg ? lastMsg.text.slice(0, 60) + (lastMsg.text.length > 60 ? '…' : '') : profile.prompts[0].a.slice(0, 60) + '…'}</p>
+        </div>
+        <button class="match-msg-btn" data-pid="${profile.id}">Message</button>
+      `;
+      card.querySelector('.match-msg-btn').addEventListener('click', () => {
+        switchTab('messages');
+        openChat(profile.id);
+      });
+      container.appendChild(card);
+    });
+  }
+
+  // ══ INBOX ══
+  function renderInbox() {
+    const container = document.getElementById('inbox-container');
+    const threads   = getThreads();
+
+    container.innerHTML = '';
+
+    if (threads.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">✉️</div>
+          <h3 class="empty-title">No conversations yet</h3>
+          <p class="empty-sub">Match with someone first, then start a conversation from the Matches tab.</p>
+        </div>`;
+      return;
+    }
+
+    threads.forEach(({ profile, lastMsg, lastTime, unread }) => {
+      const row = document.createElement('div');
+      row.className = `inbox-row${unread ? ' unread' : ''}`;
+      row.innerHTML = `
+        <div class="inbox-avatar" style="background:${profile.gradient}">${profile.initials}</div>
+        <div class="inbox-info">
+          <div class="inbox-name-row">
+            <span class="inbox-name">${profile.name}</span>
+            <span class="inbox-time">${timeAgo(lastTime)}</span>
+          </div>
+          <p class="inbox-preview">${lastMsg ? lastMsg.slice(0, 55) + (lastMsg.length > 55 ? '…' : '') : 'Tap to start the conversation'}</p>
+        </div>
+        ${unread ? '<div class="inbox-dot"></div>' : ''}
+      `;
+      row.addEventListener('click', () => openChat(profile.id));
+      container.appendChild(row);
+    });
+  }
+
+  // ══ CHAT ══
+  function openChat(profileId) {
+    activeChatProfileId = profileId;
+    const profile = VersesApp.DEMO_PROFILES.find(p => p.id === profileId);
+    if (!profile) return;
+
+    document.getElementById('chat-name').textContent = profile.name;
+    document.getElementById('chat-sub').textContent  = `${profile.age} · ${profile.location}`;
+    document.getElementById('chat-avatar').textContent = profile.initials;
+    document.getElementById('chat-avatar').style.background = profile.gradient;
+
+    // Mark messages as read
+    const msgs = getMessages();
+    if (msgs[profileId]) {
+      msgs[profileId].forEach(m => { if (m.sender === 'them') m.read = true; });
+      saveMessages(msgs);
+    }
+
+    document.getElementById('inbox-screen').style.display = 'none';
+    document.getElementById('chat-screen').style.display  = 'flex';
+
+    renderChatMessages(profileId);
+    updateBadges();
+
+    // Seed with opening message from them if no history
+    const thread = (getMessages()[profileId] || []);
+    if (thread.length === 0) {
+      setTimeout(() => {
+        addTheirMessage(profileId, profile.prompts[0].a);
+      }, 600);
+    }
+  }
+
+  function closeChat() {
+    activeChatProfileId = null;
+    document.getElementById('chat-screen').style.display  = 'none';
+    document.getElementById('inbox-screen').style.display = 'block';
+    renderInbox();
+  }
+
+  function renderChatMessages(profileId) {
+    const msgs   = getMessages();
+    const thread = msgs[profileId] || [];
+    const box    = document.getElementById('chat-messages');
+
+    box.innerHTML = '';
+
+    if (thread.length === 0) {
+      box.innerHTML = `<div class="chat-empty">
+        <p class="chat-empty-text">This is the beginning of something beautiful.</p>
+      </div>`;
+    } else {
+      thread.forEach(msg => {
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble ${msg.sender === 'me' ? 'mine' : 'theirs'}`;
+        bubble.innerHTML = `
+          <p>${msg.text}</p>
+          <span class="bubble-time">${timeAgo(msg.time)}</span>
+        `;
+        box.appendChild(bubble);
+      });
+    }
+
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const text  = input.value.trim();
+    if (!text || !activeChatProfileId) return;
+
+    const msgs = getMessages();
+    if (!msgs[activeChatProfileId]) msgs[activeChatProfileId] = [];
+
+    msgs[activeChatProfileId].push({
+      sender: 'me', text, time: new Date().toISOString(), read: true
+    });
+    saveMessages(msgs);
+    input.value = '';
+    input.style.height = 'auto';
+
+    renderChatMessages(activeChatProfileId);
+
+    // Auto-response after delay
+    const profileId = activeChatProfileId;
+    setTimeout(() => {
+      if (activeChatProfileId !== profileId) return;
+      addTheirMessage(profileId, AUTO_RESPONSES[Math.floor(Math.random() * AUTO_RESPONSES.length)]);
+    }, 1200 + Math.random() * 800);
+  }
+
+  function addTheirMessage(profileId, text) {
+    const msgs = getMessages();
+    if (!msgs[profileId]) msgs[profileId] = [];
+    msgs[profileId].push({
+      sender: 'them', text, time: new Date().toISOString(), read: activeChatProfileId === profileId
+    });
+    saveMessages(msgs);
+    if (activeChatProfileId === profileId) {
+      renderChatMessages(profileId);
+    }
+    updateBadges();
+  }
+
+  function chatKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+    // Auto-grow textarea
+    const ta = document.getElementById('chat-input');
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
+  }
+
+  // ══ PROFILE ══
+  const PROMPT_QUESTIONS = [
+    'A line I live by',
+    'My love language',
+    "I'm looking for",
+    'My most irrational fear',
+    'The way to my heart',
+    'I geek out on',
+    'A Sunday for me looks like',
+    'My simple pleasures',
+  ];
+
+  function buildPromptEditor(containerId, promptData, index) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = `
+      <p class="prompt-question">Prompt ${index + 1}</p>
+      <div class="form-group" style="margin-top:0.5rem;">
+        <label class="form-label">Question</label>
+        <select class="form-input" id="pq-${index}" style="appearance:auto; cursor:pointer;">
+          ${PROMPT_QUESTIONS.map(q => `<option value="${q}" ${q === promptData.q ? 'selected' : ''}>${q}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Your answer</label>
+        <textarea class="form-input" id="pa-${index}" rows="3" placeholder="Write from the heart…" style="resize:none; font-family:'Playfair Display',serif; font-style:italic;">${promptData.a}</textarea>
+      </div>
+    `;
+  }
+
+  function renderProfileEditor() {
+    const data = getUserProfile();
+
+    // Avatar
+    document.getElementById('profile-avatar-circle').textContent = VersesApp.getInitials(data.name || SESSION.name);
+    document.getElementById('profile-avatar-name').textContent   = data.name || SESSION.name;
+    document.getElementById('profile-avatar-sub').textContent    = [data.age ? `Age ${data.age}` : '', data.location].filter(Boolean).join(' · ') || 'Complete your profile below';
+
+    // Basic fields
+    document.getElementById('p-name').value     = data.name || SESSION.name;
+    document.getElementById('p-age').value      = data.age || '';
+    document.getElementById('p-location').value = data.location || '';
+
+    // Prompt editors
+    buildPromptEditor('prompt-editor-1', data.prompts[0], 0);
+    buildPromptEditor('prompt-editor-2', data.prompts[1], 1);
+    buildPromptEditor('prompt-editor-3', data.prompts[2], 2);
+  }
+
+  function saveProfile() {
+    const name     = document.getElementById('p-name').value.trim();
+    const age      = document.getElementById('p-age').value.trim();
+    const location = document.getElementById('p-location').value.trim();
+    const prompts  = [0, 1, 2].map(i => ({
+      q: document.getElementById(`pq-${i}`)?.value || '',
+      a: document.getElementById(`pa-${i}`)?.value.trim() || '',
+    }));
+
+    if (!name) { VersesApp.showToast('Please add a display name'); return; }
+
+    saveUserProfile({ name, age, location, prompts });
+
+    // Update nav display name
+    document.getElementById('nav-user').textContent = name;
+    document.getElementById('profile-avatar-circle').textContent = VersesApp.getInitials(name);
+    document.getElementById('profile-avatar-name').textContent   = name;
+    document.getElementById('profile-avatar-sub').textContent    = [age ? `Age ${age}` : '', location].filter(Boolean).join(' · ') || 'Profile saved';
+
+    VersesApp.showToast('Profile saved ✦');
+  }
+
+  // ══ REPLY MODAL (Discover tab) ══
+  function openModal(profile, prompt) {
+    currentReplyContext = { profile, prompt };
+    document.getElementById('modal-title').textContent = `Reply to ${profile.name}`;
+    document.getElementById('modal-sub').textContent   = `"${prompt.a}"`;
+    document.getElementById('modal-textarea').value    = '';
+    document.getElementById('reply-modal').classList.add('open');
+    setTimeout(() => document.getElementById('modal-textarea').focus(), 300);
+  }
+
+  function closeModal() {
+    document.getElementById('reply-modal').classList.remove('open');
+    currentReplyContext = null;
+  }
+
+  function sendReply() {
+    const text = document.getElementById('modal-textarea').value.trim();
+    if (!text) { VersesApp.showToast('Write something first ✦'); return; }
+
+    if (currentReplyContext) {
+      const profile = currentReplyContext.profile;
+      // Save into chat thread
+      const msgs = getMessages();
+      if (!msgs[profile.id]) msgs[profile.id] = [];
+      msgs[profile.id].push({ sender: 'me', text, time: new Date().toISOString(), read: true });
+      saveMessages(msgs);
+
+      // Like the profile automatically on reply
+      const likes   = VersesApp.getLikes();
+      const userKey = `user_${SESSION.id}`;
+      if (!likes[userKey]) likes[userKey] = {};
+      const likeKey = `${profile.id}_0`;
+      if (!likes[userKey][likeKey]) {
+        likes[userKey][likeKey] = { profileId: profile.id, promptIdx: 0, likedAt: new Date().toISOString() };
+        VersesApp.saveLikes(likes);
+      }
+      updateBadges();
+      closeModal();
+      VersesApp.showToast(`Reply sent to ${profile.name} ✦`);
+
+      // Auto-response
+      setTimeout(() => {
+        addTheirMessage(profile.id, AUTO_RESPONSES[Math.floor(Math.random() * AUTO_RESPONSES.length)]);
+      }, 2000 + Math.random() * 1000);
+    } else {
+      closeModal();
+      VersesApp.showToast('Reply sent ✦');
+    }
+  }
+  </script>
+
+</body>
+</html>
