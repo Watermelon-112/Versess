@@ -100,22 +100,15 @@
       </div>
       <div class="feed-container">
 
-        <!-- Photo Upload -->
-        <div class="photo-upload-card">
-          <div class="photo-upload-area" id="photo-upload-area" onclick="triggerPhotoUpload()">
-            <div class="photo-upload-placeholder" id="photo-placeholder">
-              <span class="photo-upload-icon">📷</span>
-              <span class="photo-upload-label">Tap to add photo</span>
-            </div>
-            <img id="photo-preview" class="photo-preview-img" style="display:none;" alt="Profile" />
-            <div class="photo-upload-overlay">
-              <span>Change photo</span>
-            </div>
-          </div>
-          <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)" />
-          <div class="photo-info">
-            <p class="profile-avatar-name" id="profile-avatar-name"></p>
-            <p class="profile-avatar-sub" id="profile-avatar-sub"></p>
+        <!-- Media Gallery (up to 8 photos/videos) -->
+        <div class="profile-card">
+          <div class="prompt-block" style="border-bottom:none;">
+            <p class="profile-avatar-name" id="profile-avatar-name" style="font-size:1.1rem;margin-bottom:0.2rem;"></p>
+            <p class="profile-avatar-sub" id="profile-avatar-sub" style="font-size:0.82rem;color:var(--text-light);margin-bottom:1rem;"></p>
+            <p class="prompt-question" style="margin-bottom:0.3rem;">📷 Photos &amp; Videos</p>
+            <p style="font-size:0.8rem;color:var(--text-light);font-style:italic;margin-bottom:0.8rem;">Up to 8 photos or short videos — tap + to add</p>
+            <div class="media-grid" id="media-grid"></div>
+            <input type="file" id="media-input" accept="image/*,video/*" style="display:none" onchange="handleMediaUpload(this)" />
           </div>
         </div>
 
@@ -168,6 +161,10 @@
           Sign out
         </button>
 
+        <button class="btn-delete-account" onclick="deleteAccount()">
+          Delete my account
+        </button>
+
       </div>
     </div>
   </div>
@@ -213,18 +210,73 @@
     </div>
   </div>
 
+  <!-- PROFILE VIEW MODAL -->
+  <div class="profile-modal" id="profile-modal">
+    <div class="profile-modal-topbar">
+      <button class="profile-modal-back" onclick="closeProfileModal()">← Back</button>
+      <span class="profile-modal-name" id="pm-name"></span>
+    </div>
+    <div id="pm-media-scroll" class="profile-media-scroll"></div>
+    <div class="profile-modal-body" id="pm-body"></div>
+    <div style="padding:0 1.2rem 1.5rem; display:flex; gap:0.6rem;">
+      <button class="btn btn-primary" style="flex:1" id="pm-like-btn" onclick="pmLike()">♥ Like</button>
+      <button class="btn btn-secondary" style="flex:1" id="pm-msg-btn" onclick="pmMessage()">✦ Message</button>
+    </div>
+    <div style="padding:0 1.2rem 2rem; text-align:center;">
+      <button class="btn-block-report" onclick="openReportModal(window._pmProfile)">⚑ Block or Report</button>
+    </div>
+  </div>
+
+  <!-- REPORT MODAL -->
+  <div class="modal-overlay" id="report-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <h3 class="modal-title">Block or Report</h3>
+      <p class="modal-sub" id="report-modal-sub"></p>
+      <p style="font-size:0.82rem;color:var(--text-mid);margin-bottom:0.8rem;font-weight:600;">Reason</p>
+      <div class="report-reason-grid" id="reason-grid">
+        <div class="reason-chip" onclick="selectReason(this,'Inappropriate messages')">Inappropriate messages</div>
+        <div class="reason-chip" onclick="selectReason(this,'Fake profile')">Fake profile</div>
+        <div class="reason-chip" onclick="selectReason(this,'Harassment')">Harassment</div>
+        <div class="reason-chip" onclick="selectReason(this,'Hate speech')">Hate speech</div>
+        <div class="reason-chip" onclick="selectReason(this,'Spam')">Spam</div>
+        <div class="reason-chip" onclick="selectReason(this,'Other')">Other</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Details (optional)</label>
+        <textarea class="form-input" id="report-details" rows="2" placeholder="Tell us more…" style="resize:none;"></textarea>
+      </div>
+      <div class="evidence-upload" id="evidence-area" onclick="document.getElementById('evidence-input').click()">
+        <span id="evidence-label">📎 Add screenshot or screen recording (optional)</span>
+        <input type="file" id="evidence-input" accept="image/*,video/*" style="display:none" onchange="handleEvidenceUpload(this)" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" style="flex:1;background:#c0392b;" onclick="submitReport()">⚑ Report</button>
+        <button class="btn btn-ghost" style="flex:1;border-color:#c0392b;color:#c0392b;" onclick="blockOnly()">🚫 Block only</button>
+      </div>
+      <div style="text-align:center;margin-top:0.5rem;">
+        <button class="btn btn-ghost" onclick="closeReportModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST -->
   <div class="toast" id="verses-toast"></div>
 
   <script>
   // ══ STATE ══
   let SESSION = null;
-  let currentReplyContext = null;
-  let activeChatProfileId = null;
-  let activeChatProfile   = null;
-  let realtimeChannel     = null;
-  let allProfiles         = [];   // real users from Supabase
-  let myLikes             = {};   // { profileId_promptIdx: true }
+  let currentReplyContext  = null;
+  let activeChatProfileId  = null;
+  let activeChatProfile    = null;
+  let realtimeChannel      = null;
+  let allProfiles          = [];
+  let myLikes              = {};
+  let blockedIds           = new Set();
+  let currentReportProfile = null;
+  let reportEvidenceUrl    = null;
+  let selectedReason       = null;
+  let myMedia              = [];   // [{type:'photo'|'video', url:string}]
 
   // ══ INIT ══
   document.addEventListener('DOMContentLoaded', async () => {
@@ -236,13 +288,15 @@
     const greet = hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
     document.getElementById('feed-greeting').textContent = `${greet} ${SESSION.name.split(' ')[0]}.`;
 
-    // Load real profiles + my likes from Supabase
-    const [profiles, likes] = await Promise.all([
+    // Load real profiles, likes, and blocks from Supabase
+    const [profiles, likes, blocks] = await Promise.all([
       VersesDB.dbGetAllProfiles(SESSION.id),
       VersesDB.dbGetMyLikes(SESSION.id),
+      VersesDB.dbGetMyBlocks(SESSION.id),
     ]);
     allProfiles = profiles;
     likes.forEach(l => { myLikes[`${l.to_id}_${l.prompt_idx}`] = true; });
+    blocks.forEach(id => blockedIds.add(id));
 
     renderFeed();
     updateBadges();
@@ -317,7 +371,7 @@
     const container = document.getElementById('feed-container');
     container.innerHTML = '';
 
-    const cards = allProfiles.map(profileToCard);
+    const cards = allProfiles.filter(p => !blockedIds.has(p.id)).map(profileToCard);
 
     if (cards.length === 0) {
       container.innerHTML = `<div class="empty-state">
@@ -347,22 +401,45 @@
     card.className = 'profile-card';
     card.style.animationDelay = `${animDelay * 0.08}s`;
 
-    // Photo or placeholder
-    const photoHtml = profile.photo
-      ? `<img src="${profile.photo}" style="width:100%;height:280px;object-fit:cover;display:block;" alt="${profile.name}" />`
-      : `<div class="profile-photo-placeholder" style="background:${profile.gradient}">
+    // Use first item from media array, or legacy photo, or placeholder
+    const mediaArr = Array.isArray(profile.media) ? profile.media : [];
+    const firstMedia = mediaArr[0] || (profile.photo ? {type:'photo', url: profile.photo} : null);
+    const mediaCount = mediaArr.length || (profile.photo ? 1 : 0);
+
+    let heroHtml = '';
+    if (firstMedia && firstMedia.type === 'video') {
+      heroHtml = `<video src="${firstMedia.url}" style="width:100%;height:280px;object-fit:cover;display:block;" muted playsinline></video>`;
+    } else if (firstMedia) {
+      heroHtml = `<img src="${firstMedia.url}" style="width:100%;height:280px;object-fit:cover;display:block;" alt="${profile.name}" />`;
+    } else {
+      heroHtml = `<div class="profile-photo-placeholder" style="background:${profile.gradient}">
            <span class="initials">${profile.initials}</span>
            <span class="photo-sub">${profile.name} · ${profile.age || ''}</span>
          </div>`;
+    }
 
     card.innerHTML = `
-      ${photoHtml}
+      <div style="position:relative;">
+        ${heroHtml}
+        ${mediaCount > 1 ? `<div style="position:absolute;bottom:0.5rem;right:0.7rem;background:rgba(0,0,0,0.5);color:white;font-size:0.72rem;padding:0.2rem 0.5rem;border-radius:8px;">1/${mediaCount}</div>` : ''}
+      </div>
       <div class="profile-info">
         <span class="profile-name">${profile.name}</span>
         ${profile.age ? `<span class="profile-age">${profile.age}</span>` : ''}
         ${profile.location ? `<span class="profile-location">📍 ${profile.location}</span>` : ''}
       </div>
     `;
+
+    // View Profile + Block/Report row
+    const actionRow = document.createElement('div');
+    actionRow.className = 'card-action-row';
+    actionRow.innerHTML = `
+      <button class="btn-view-profile">View Profile</button>
+      <button class="btn-block-report">⚑ Report</button>
+    `;
+    actionRow.querySelector('.btn-view-profile').addEventListener('click', () => openProfileModal(profile));
+    actionRow.querySelector('.btn-block-report').addEventListener('click', () => openReportModal(profile));
+    card.appendChild(actionRow);
 
     // Voice note widget
     if (profile.voice_note) {
@@ -869,35 +946,29 @@
   }
 
   async function renderProfileEditor() {
-    // Try to load from Supabase, fall back to localStorage cache
     let dbProf = await VersesDB.dbGetProfile(SESSION.id);
     const data = {
-      name:      dbProf?.name     || SESSION.name,
-      age:       dbProf?.age      || '',
-      location:  dbProf?.location || '',
+      name:     dbProf?.name     || SESSION.name,
+      age:      dbProf?.age      || '',
+      location: dbProf?.location || '',
       prompts: [
         { q: dbProf?.prompt1_q || 'A line I live by', a: dbProf?.prompt1_a || '' },
         { q: dbProf?.prompt2_q || 'My love language',  a: dbProf?.prompt2_a || '' },
         { q: dbProf?.prompt3_q || "I'm looking for",   a: dbProf?.prompt3_a || '' },
       ],
     };
-
-    // Photo — prefer DB, fall back to localStorage
-    const photo = dbProf?.photo || getPhoto();
-    if (dbProf?.photo) savePhoto(dbProf.photo);  // sync to local cache
-    if (dbProf?.voice_note) saveVoiceNote(dbProf.voice_note);  // sync voice
-
-    showPhotoPreview(photo);
+    if (dbProf?.voice_note) saveVoiceNote(dbProf.voice_note);
+    myMedia = Array.isArray(dbProf?.media) ? dbProf.media : [];
 
     document.getElementById('profile-avatar-name').textContent = data.name;
-    document.getElementById('profile-avatar-sub').textContent  = [data.age ? `Age ${data.age}` : '', data.location].filter(Boolean).join(' · ') || 'Complete your profile below';
-
+    document.getElementById('profile-avatar-sub').textContent  =
+      [data.age ? `Age ${data.age}` : '', data.location].filter(Boolean).join(' · ') || 'Complete your profile below';
     document.getElementById('p-name').value     = data.name;
     document.getElementById('p-age').value      = data.age;
     document.getElementById('p-location').value = data.location;
 
+    renderMediaGrid();
     renderVoiceUI();
-
     buildPromptEditor('prompt-editor-1', data.prompts[0], 0);
     buildPromptEditor('prompt-editor-2', data.prompts[1], 1);
     buildPromptEditor('prompt-editor-3', data.prompts[2], 2);
@@ -907,34 +978,215 @@
     const name     = document.getElementById('p-name').value.trim();
     const age      = parseInt(document.getElementById('p-age').value.trim()) || null;
     const location = document.getElementById('p-location').value.trim();
-    const prompts  = [0, 1, 2].map(i => ({
+    const prompts  = [0,1,2].map(i => ({
       q: document.getElementById(`pq-${i}`)?.value || '',
       a: document.getElementById(`pa-${i}`)?.value.trim() || '',
     }));
-
     if (!name) { VersesApp.showToast('Please add a display name'); return; }
-
     const btn = document.querySelector('[onclick="saveProfile()"]');
     if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
-
-    // Push to Supabase
     await VersesDB.dbUpdateProfile(SESSION.id, {
       name, age, location,
       prompt1_q: prompts[0].q, prompt1_a: prompts[0].a,
       prompt2_q: prompts[1].q, prompt2_a: prompts[1].a,
       prompt3_q: prompts[2].q, prompt3_a: prompts[2].a,
-      photo:      getPhoto()     || null,
+      media:      myMedia,
       voice_note: getVoiceNote() || null,
     });
-
-    if (btn) { btn.textContent = '✦ Save profile'; btn.disabled = false; }
-
-    document.getElementById('nav-user').textContent             = name;
-    document.getElementById('profile-avatar-name').textContent  = name;
-    document.getElementById('profile-avatar-sub').textContent   = [age ? `Age ${age}` : '', location].filter(Boolean).join(' · ') || 'Profile saved';
-
+    if (btn) { btn.textContent = '✦ Save my profile'; btn.disabled = false; }
+    document.getElementById('nav-user').textContent            = name;
+    document.getElementById('profile-avatar-name').textContent = name;
+    document.getElementById('profile-avatar-sub').textContent  =
+      [age ? `Age ${age}` : '', location].filter(Boolean).join(' · ') || 'Profile saved';
     VersesApp.setSession({ ...SESSION, name });
     VersesApp.showToast('Profile saved ✦');
+  }
+
+  // ══ MEDIA GRID ══
+  function renderMediaGrid() {
+    const grid = document.getElementById('media-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    myMedia.forEach((item, idx) => {
+      const cell = document.createElement('div');
+      cell.className = 'media-cell';
+      if (item.type === 'video') {
+        cell.innerHTML = `<video src="${item.url}" muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+          <span class="media-video-badge">▶ video</span>`;
+      } else {
+        cell.innerHTML = `<img src="${item.url}" alt="media" />`;
+      }
+      const del = document.createElement('button');
+      del.className = 'media-delete-btn';
+      del.textContent = '×';
+      del.addEventListener('click', (e) => { e.stopPropagation(); removeMediaSlot(idx); });
+      cell.appendChild(del);
+      grid.appendChild(cell);
+    });
+    if (myMedia.length < 8) {
+      const add = document.createElement('div');
+      add.className = 'media-cell media-cell-add';
+      add.innerHTML = `<span>+</span><span>Add</span>`;
+      add.addEventListener('click', () => document.getElementById('media-input').click());
+      grid.appendChild(add);
+    }
+  }
+
+  async function handleMediaUpload(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const isVideo = file.type.startsWith('video/');
+    input.value = '';
+    if (myMedia.length >= 8) { VersesApp.showToast('Maximum 8 items reached'); return; }
+    VersesApp.showToast('Uploading…');
+    const slot   = myMedia.length;
+    const result = await VersesDB.dbUploadMediaSlot(SESSION.id, slot, file, file.type);
+    if (result) {
+      myMedia.push(result);
+      renderMediaGrid();
+      VersesApp.showToast('Added ✦');
+    } else {
+      VersesApp.showToast('Upload failed — please try again');
+    }
+  }
+
+  async function removeMediaSlot(idx) {
+    await VersesDB.dbDeleteMediaSlot(SESSION.id, idx);
+    myMedia.splice(idx, 1);
+    // Re-index remaining slots in storage
+    renderMediaGrid();
+    VersesApp.showToast('Removed');
+  }
+
+  // ══ PROFILE VIEW MODAL ══
+  function openProfileModal(profile) {
+    window._pmProfile = profile;
+    document.getElementById('pm-name').textContent = `${profile.name}${profile.age ? ', ' + profile.age : ''}`;
+
+    // Media scroll
+    const scroll = document.getElementById('pm-media-scroll');
+    scroll.innerHTML = '';
+    const mediaArr = Array.isArray(profile.media) ? profile.media : [];
+    if (profile.photo && mediaArr.length === 0) mediaArr.push({ type:'photo', url: profile.photo });
+    if (mediaArr.length === 0) {
+      scroll.innerHTML = `<div style="width:100%;height:200px;background:linear-gradient(145deg,#C8A27A,#4A2C2A);display:flex;align-items:center;justify-content:center;color:white;font-size:2.5rem;font-family:'Playfair Display',serif;">${profile.initials}</div>`;
+    } else {
+      mediaArr.forEach(m => {
+        if (m.type === 'video') {
+          scroll.innerHTML += `<video src="${m.url}" controls style="height:260px;min-width:200px;max-width:260px;object-fit:cover;border-radius:12px;flex-shrink:0;"></video>`;
+        } else {
+          scroll.innerHTML += `<img src="${m.url}" alt="${profile.name}" style="height:260px;min-width:200px;max-width:260px;object-fit:cover;border-radius:12px;flex-shrink:0;" />`;
+        }
+      });
+    }
+
+    // Body: voice note + prompts
+    const body = document.getElementById('pm-body');
+    let html = '';
+    if (profile.voice_note) {
+      html += `<div class="voice-note-card" style="margin-bottom:1rem;">
+        <span class="voice-note-label">🎤 Voice</span>
+        <audio controls src="${profile.voice_note}" style="width:100%;margin-top:0.5rem;"></audio>
+      </div>`;
+    }
+    (profile.prompts || []).forEach(p => {
+      if (!p.a) return;
+      html += `<div class="prompt-block">
+        <p class="prompt-question">${p.q}</p>
+        <p class="prompt-answer">${p.a}</p>
+      </div>`;
+    });
+    body.innerHTML = html;
+
+    document.getElementById('profile-modal').classList.add('open');
+  }
+
+  function closeProfileModal() {
+    document.getElementById('profile-modal').classList.remove('open');
+    window._pmProfile = null;
+  }
+
+  async function pmLike() {
+    const profile = window._pmProfile;
+    if (!profile) return;
+    const liked = await VersesDB.dbToggleLike(SESSION.id, profile.id, 0);
+    const btn = document.getElementById('pm-like-btn');
+    btn.textContent = liked ? '♥ Liked!' : '♥ Like';
+    if (liked) myLikes[`${profile.id}_0`] = true;
+    else delete myLikes[`${profile.id}_0`];
+    VersesApp.showToast(liked ? `Liked ${profile.name} ✦` : 'Like removed');
+    updateBadges();
+  }
+
+  function pmMessage() {
+    const profile = window._pmProfile;
+    if (!profile) return;
+    closeProfileModal();
+    switchTab('messages');
+    openChat(profile);
+  }
+
+  // ══ BLOCK & REPORT ══
+  function openReportModal(profile) {
+    currentReportProfile = profile;
+    reportEvidenceUrl    = null;
+    selectedReason       = null;
+    document.getElementById('report-modal-sub').textContent = `${profile.name}`;
+    document.getElementById('report-details').value = '';
+    document.getElementById('evidence-label').textContent = '📎 Add screenshot or screen recording (optional)';
+    document.querySelectorAll('.reason-chip').forEach(c => c.classList.remove('selected'));
+    document.getElementById('report-modal').classList.add('open');
+  }
+
+  function closeReportModal() {
+    document.getElementById('report-modal').classList.remove('open');
+    currentReportProfile = null;
+  }
+
+  function selectReason(el, reason) {
+    selectedReason = reason;
+    document.querySelectorAll('.reason-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  async function handleEvidenceUpload(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    document.getElementById('evidence-label').textContent = 'Uploading evidence…';
+    const url = await VersesDB.dbUploadEvidence(SESSION.id, file, file.type);
+    reportEvidenceUrl = url;
+    document.getElementById('evidence-label').textContent = url ? '✓ Evidence attached' : '⚠ Upload failed';
+  }
+
+  async function submitReport() {
+    if (!currentReportProfile) return;
+    if (!selectedReason) { VersesApp.showToast('Please select a reason'); return; }
+    const details = document.getElementById('report-details').value.trim();
+    await VersesDB.dbReport(SESSION.id, currentReportProfile.id, selectedReason, details, reportEvidenceUrl);
+    await VersesDB.dbBlockUser(SESSION.id, currentReportProfile.id);
+    blockedIds.add(currentReportProfile.id);
+    renderFeed();
+    closeReportModal();
+    VersesApp.showToast(`Reported & blocked ${currentReportProfile.name}`);
+  }
+
+  async function blockOnly() {
+    if (!currentReportProfile) return;
+    await VersesDB.dbBlockUser(SESSION.id, currentReportProfile.id);
+    blockedIds.add(currentReportProfile.id);
+    renderFeed();
+    closeReportModal();
+    VersesApp.showToast(`${currentReportProfile.name} blocked`);
+  }
+
+  // ══ DELETE ACCOUNT ══
+  async function deleteAccount() {
+    if (!confirm('This will permanently delete your account and all your data. This cannot be undone.')) return;
+    const secondConfirm = confirm('Are you absolutely sure? Your profile, photos, and messages will be gone forever.');
+    if (!secondConfirm) return;
+    await VersesDB.dbDeleteAccount(SESSION.id);
+    VersesApp.clearSession();
+    window.location.href = 'index.html';
   }
 
   // ══ REPLY MODAL (Discover tab) ══
