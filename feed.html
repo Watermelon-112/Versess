@@ -127,8 +127,16 @@
               </div>
               <div class="form-group" style="flex:2;">
                 <label class="form-label">Location</label>
-                <input class="form-input" id="p-location" type="text" placeholder="City, State" />
+                <input class="form-input" id="p-location" type="text" placeholder="City, Country" />
               </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Work / Occupation</label>
+              <input class="form-input" id="p-work" type="text" placeholder="e.g. Poet, Teacher, Engineer…" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">About me</label>
+              <textarea class="form-input" id="p-bio" rows="3" placeholder="A short intro — what makes you you…" style="resize:none;"></textarea>
             </div>
           </div>
         </div>
@@ -426,6 +434,7 @@
       <div class="profile-info">
         <span class="profile-name">${profile.name}</span>
         ${profile.age ? `<span class="profile-age">${profile.age}</span>` : ''}
+        ${profile.work ? `<span class="profile-location">💼 ${profile.work}</span>` : ''}
         ${profile.location ? `<span class="profile-location">📍 ${profile.location}</span>` : ''}
       </div>
     `;
@@ -966,6 +975,8 @@
     document.getElementById('p-name').value     = data.name;
     document.getElementById('p-age').value      = data.age;
     document.getElementById('p-location').value = data.location;
+    document.getElementById('p-work').value     = dbProf?.work || '';
+    document.getElementById('p-bio').value      = dbProf?.bio  || '';
 
     renderMediaGrid();
     renderVoiceUI();
@@ -985,8 +996,10 @@
     if (!name) { VersesApp.showToast('Please add a display name'); return; }
     const btn = document.querySelector('[onclick="saveProfile()"]');
     if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+    const work = document.getElementById('p-work').value.trim();
+    const bio  = document.getElementById('p-bio').value.trim();
     await VersesDB.dbUpdateProfile(SESSION.id, {
-      name, age, location,
+      name, age, location, work, bio,
       prompt1_q: prompts[0].q, prompt1_a: prompts[0].a,
       prompt2_q: prompts[1].q, prompt2_a: prompts[1].a,
       prompt3_q: prompts[2].q, prompt3_a: prompts[2].a,
@@ -1061,34 +1074,57 @@
   // ══ PROFILE VIEW MODAL ══
   function openProfileModal(profile) {
     window._pmProfile = profile;
-    document.getElementById('pm-name').textContent = `${profile.name}${profile.age ? ', ' + profile.age : ''}`;
+    document.getElementById('pm-name').textContent = profile.name;
 
-    // Media scroll
+    // ── Media scroll ──
     const scroll = document.getElementById('pm-media-scroll');
     scroll.innerHTML = '';
-    const mediaArr = Array.isArray(profile.media) ? profile.media : [];
+    const mediaArr = Array.isArray(profile.media) ? [...profile.media] : [];
     if (profile.photo && mediaArr.length === 0) mediaArr.push({ type:'photo', url: profile.photo });
     if (mediaArr.length === 0) {
-      scroll.innerHTML = `<div style="width:100%;height:200px;background:linear-gradient(145deg,#C8A27A,#4A2C2A);display:flex;align-items:center;justify-content:center;color:white;font-size:2.5rem;font-family:'Playfair Display',serif;">${profile.initials}</div>`;
+      const initials = profile.initials || (profile.name || '?')[0];
+      const gradient = profile.gradient || 'linear-gradient(145deg,#C8A27A,#4A2C2A)';
+      scroll.innerHTML = `<div style="width:100%;min-height:280px;background:${gradient};display:flex;align-items:center;justify-content:center;color:white;font-size:3rem;font-family:'Playfair Display',serif;">${initials}</div>`;
     } else {
       mediaArr.forEach(m => {
         if (m.type === 'video') {
-          scroll.innerHTML += `<video src="${m.url}" controls style="height:260px;min-width:200px;max-width:260px;object-fit:cover;border-radius:12px;flex-shrink:0;"></video>`;
+          scroll.innerHTML += `<video src="${m.url}" controls style="height:280px;min-width:220px;max-width:280px;object-fit:cover;border-radius:14px;flex-shrink:0;"></video>`;
         } else {
-          scroll.innerHTML += `<img src="${m.url}" alt="${profile.name}" style="height:260px;min-width:200px;max-width:260px;object-fit:cover;border-radius:12px;flex-shrink:0;" />`;
+          scroll.innerHTML += `<img src="${m.url}" alt="${profile.name}" style="height:280px;min-width:220px;max-width:280px;object-fit:cover;border-radius:14px;flex-shrink:0;" />`;
         }
       });
     }
 
-    // Body: voice note + prompts
+    // ── Body ──
     const body = document.getElementById('pm-body');
     let html = '';
+
+    // Name + key facts pill row
+    const pills = [];
+    if (profile.age)      pills.push(`🎂 ${profile.age}`);
+    if (profile.work)     pills.push(`💼 ${profile.work}`);
+    if (profile.location) pills.push(`📍 ${profile.location}`);
+    html += `<div style="margin-bottom:1.2rem;">
+      <h2 style="font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--dark-brown);margin-bottom:0.6rem;">${profile.name}</h2>
+      ${pills.length ? `<div style="display:flex;flex-wrap:wrap;gap:0.4rem;">${pills.map(p=>`<span style="background:var(--soft-beige);color:var(--text-mid);padding:0.3rem 0.75rem;border-radius:20px;font-size:0.82rem;">${p}</span>`).join('')}</div>` : ''}
+    </div>`;
+
+    // Bio
+    if (profile.bio) {
+      html += `<div style="background:var(--soft-beige);border-radius:12px;padding:1rem;margin-bottom:1.2rem;">
+        <p style="font-size:0.85rem;color:var(--dark-brown);line-height:1.6;white-space:pre-wrap;">${profile.bio}</p>
+      </div>`;
+    }
+
+    // Voice note
     if (profile.voice_note) {
-      html += `<div class="voice-note-card" style="margin-bottom:1rem;">
-        <span class="voice-note-label">🎤 Voice</span>
+      html += `<div class="voice-note-card" style="margin-bottom:1.2rem;">
+        <span class="voice-note-label">🎤 Voice note</span>
         <audio controls src="${profile.voice_note}" style="width:100%;margin-top:0.5rem;"></audio>
       </div>`;
     }
+
+    // Prompts
     (profile.prompts || []).forEach(p => {
       if (!p.a) return;
       html += `<div class="prompt-block">
@@ -1096,8 +1132,8 @@
         <p class="prompt-answer">${p.a}</p>
       </div>`;
     });
-    body.innerHTML = html;
 
+    body.innerHTML = html;
     document.getElementById('profile-modal').classList.add('open');
   }
 
