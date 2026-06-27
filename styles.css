@@ -1507,3 +1507,57 @@ html, body {
   .chat-topbar { top: 56px; }
   .chat-messages { padding-top: 5rem; }
 }
+
+/* ── MEDIA GRID ── */
+.media-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.5rem; }
+.media-cell { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+              background: var(--soft-beige); cursor: pointer; }
+.media-cell img, .media-cell video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.media-cell-add { border: 2px dashed var(--light-brown); display: flex; flex-direction: column;
+                  align-items: center; justify-content: center; gap: 0.3rem;
+                  color: var(--text-light); font-size: 0.78rem; cursor: pointer; transition: border-color 0.2s; }
+.media-cell-add:hover { border-color: var(--gold); color: var(--gold); }
+.media-cell-add span:first-child { font-size: 1.6rem; }
+.media-delete-btn { position: absolute; top: 0.3rem; right: 0.3rem; width: 22px; height: 22px;
+                    border-radius: 50%; background: rgba(74,44,42,0.8); color: white; border: none;
+                    cursor: pointer; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; }
+.media-video-badge { position: absolute; bottom: 0.3rem; left: 0.3rem; background: rgba(0,0,0,0.55);
+                     color: white; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 6px; }
+
+/* ── PROFILE VIEW MODAL ── */
+.profile-modal { position: fixed; inset: 0; z-index: 300; background: var(--cream);
+                 overflow-y: auto; transform: translateY(100%); transition: transform 0.35s ease; }
+.profile-modal.open { transform: translateY(0); }
+.profile-modal-topbar { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.2rem;
+                         background: white; border-bottom: 1px solid var(--soft-beige); position: sticky; top: 0; z-index: 10; }
+.profile-modal-back { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--dark-brown); padding: 0.2rem 0.5rem; }
+.profile-modal-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--dark-brown); }
+.profile-media-scroll { display: flex; gap: 0.4rem; overflow-x: auto; padding: 0.8rem 1rem;
+                         scrollbar-width: none; }
+.profile-media-scroll::-webkit-scrollbar { display: none; }
+.profile-media-scroll img, .profile-media-scroll video {
+  height: 260px; min-width: 200px; max-width: 260px; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
+.profile-modal-body { padding: 1rem 1.2rem; }
+
+/* ── BLOCK / REPORT ── */
+.card-action-row { display: flex; gap: 0.5rem; padding: 0.8rem 1.2rem; border-top: 1px solid var(--soft-beige); }
+.btn-view-profile { flex: 1; background: var(--dark-brown); color: white; border: none; padding: 0.55rem 0.8rem;
+                    border-radius: 20px; cursor: pointer; font-size: 0.82rem; font-weight: 600; }
+.btn-block-report { background: transparent; border: 1px solid var(--soft-beige); color: var(--text-light);
+                    padding: 0.55rem 0.8rem; border-radius: 20px; cursor: pointer; font-size: 0.82rem; }
+.btn-block-report:hover { border-color: #c0392b; color: #c0392b; }
+
+/* ── REPORT MODAL ── */
+.report-reason-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+.reason-chip { border: 1px solid var(--soft-beige); background: white; color: var(--text-mid);
+               padding: 0.5rem 0.8rem; border-radius: 20px; cursor: pointer; font-size: 0.82rem; text-align: center; }
+.reason-chip.selected { border-color: var(--dark-brown); background: var(--dark-brown); color: white; }
+.evidence-upload { border: 2px dashed var(--soft-beige); border-radius: 10px; padding: 1rem;
+                   text-align: center; cursor: pointer; color: var(--text-light); font-size: 0.85rem; margin-bottom: 1rem; }
+.evidence-upload:hover { border-color: var(--gold); }
+
+/* ── DELETE ACCOUNT ── */
+.btn-delete-account { width: 100%; background: transparent; border: 1px solid #c0392b; color: #c0392b;
+                      padding: 0.7rem; border-radius: 24px; cursor: pointer; font-size: 0.85rem;
+                      margin-top: 0.5rem; font-weight: 500; }
+.btn-delete-account:hover { background: #c0392b; color: white; }
