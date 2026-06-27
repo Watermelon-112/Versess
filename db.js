@@ -10,7 +10,9 @@ function sb() {
 
 // ── PROFILES ──
 async function dbGetAllProfiles(excludeId) {
-  let q = sb().from('profiles').select('*').order('created_at', { ascending: false });
+  let q = sb().from('profiles').select('*')
+    .neq('email', 'demo@verses.app')
+    .order('created_at', { ascending: false });
   if (excludeId) q = q.neq('id', excludeId);
   const { data, error } = await q;
   if (error) { console.error('dbGetAllProfiles', error); return []; }
