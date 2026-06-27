@@ -149,10 +149,16 @@ async function dbLogin(email, password) {
   if (profile.password_hash) {
     if (profile.password_hash !== hash) return { error: 'Incorrect password.' };
   } else {
-    // Legacy: check localStorage, then migrate to DB
+    // No password in DB — check localStorage migration
     const stored = localStorage.getItem(`verses_pw_${profile.id}`);
-    if (!stored || stored !== hash) return { error: 'Incorrect password.' };
-    await dbUpdateProfile(profile.id, { password_hash: hash });
+    if (!stored) {
+      // Account exists but has no password set anywhere — let them claim it
+      await dbUpdateProfile(profile.id, { password_hash: hash });
+    } else if (stored !== hash) {
+      return { error: 'Incorrect password.' };
+    } else {
+      await dbUpdateProfile(profile.id, { password_hash: hash });
+    }
   }
   localStorage.setItem(`verses_pw_${profile.id}`, hash);
   return { profile };
