@@ -16,9 +16,7 @@
   <script src="db.js" defer></script>
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js');
-      });
+      window.addEventListener('load', () => navigator.serviceWorker.register('/service-worker.js'));
     }
   </script>
 </head>
@@ -33,17 +31,13 @@
 
   <div class="auth-wrapper">
     <div class="auth-card">
-
       <div class="auth-brand">
         <span class="auth-brand-name">VERSES</span>
         <span class="auth-brand-tag">Where words meet connection</span>
       </div>
-
       <h2 class="auth-title">Welcome back</h2>
       <p class="auth-subtitle">Your next conversation is waiting.</p>
-
       <div id="error-msg" class="error-msg"></div>
-
       <form id="login-form" onsubmit="handleLogin(event)" novalidate>
         <div class="form-group">
           <label class="form-label" for="email">Email address</label>
@@ -52,27 +46,49 @@
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
           <input class="form-input" type="password" id="password" placeholder="Your password" autocomplete="current-password" required />
+          <div style="text-align:right;margin-top:0.4rem;">
+            <a href="#" onclick="openForgotPw(event)" style="font-size:0.8rem;color:var(--gold);text-decoration:none;">Forgot password?</a>
+          </div>
         </div>
         <button type="submit" class="btn btn-primary btn-full" id="submit-btn">Sign in</button>
       </form>
-
       <div class="auth-divider">or</div>
-
-      <div style="text-align:center; margin-bottom: 0.5rem;">
+      <div style="text-align:center;margin-bottom:0.5rem;">
         <button class="btn btn-secondary btn-full" onclick="demoLogin()">✦ Try a demo account</button>
       </div>
-
       <div class="auth-switch">
         Don't have an account? <a href="signup.html">Sign up free</a>
       </div>
-
     </div>
   </div>
 
+  <!-- Forgot Password Modal -->
+  <div class="modal-overlay" id="forgot-modal" style="display:none;align-items:center;">
+    <div class="modal-sheet" style="max-width:420px;width:92%;">
+      <div class="modal-handle"></div>
+      <h3 class="modal-title">Reset your password</h3>
+      <p class="modal-sub">Enter your email and choose a new password.</p>
+      <div id="fp-error" class="error-msg"></div>
+      <div id="fp-success" class="success-msg"></div>
+      <div class="form-group">
+        <label class="form-label">Email address</label>
+        <input class="form-input" type="email" id="fp-email" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">New password</label>
+        <input class="form-input" type="password" id="fp-pw" placeholder="At least 6 characters" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" style="flex:1" onclick="submitForgotPw()">Reset password</button>
+        <button class="btn btn-ghost" onclick="closeForgotPw()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="verses-toast"></div>
+
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      VersesApp.redirectIfLoggedIn();
-    });
+    document.addEventListener('DOMContentLoaded', () => VersesApp.redirectIfLoggedIn());
 
     async function handleLogin(e) {
       e.preventDefault();
@@ -80,41 +96,63 @@
       const password = document.getElementById('password').value;
       const errEl    = document.getElementById('error-msg');
       const btn      = document.getElementById('submit-btn');
-
       errEl.style.display = 'none';
       if (!email || !password) { showErr('Please fill in all fields.'); return; }
-
-      btn.textContent = 'Signing in…';
-      btn.disabled = true;
-
+      btn.textContent = 'Signing in…'; btn.disabled = true;
       const { profile, error } = await VersesDB.dbLogin(email, password);
       if (error) { showErr(error); btn.textContent = 'Sign in'; btn.disabled = false; return; }
-
       VersesApp.setSession({ id: profile.id, name: profile.name, email: profile.email });
       window.location.href = 'feed.html';
-
       function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
     }
 
     async function demoLogin() {
       const btn = document.querySelector('.btn-secondary');
-      btn.textContent = 'Setting up demo…';
-      btn.disabled = true;
-
-      const demoEmail = 'demo@verses.app';
-      const demoName  = 'Guest Poet';
-      const demoPw    = 'demo1234';
-
+      btn.textContent = 'Setting up demo…'; btn.disabled = true;
+      const demoEmail = 'demo@verses.app', demoName = 'Guest Poet', demoPw = 'demo1234';
       let { profile } = await VersesDB.dbLogin(demoEmail, demoPw);
       if (!profile) {
         const res = await VersesDB.dbSignup(demoEmail, demoName, demoPw);
         profile = res.profile;
       }
       if (!profile) { btn.textContent = '✦ Try a demo account'; btn.disabled = false; return; }
-
       VersesApp.setSession({ id: profile.id, name: profile.name, email: profile.email });
       window.location.href = 'feed.html';
     }
+
+    function openForgotPw(e) {
+      e.preventDefault();
+      document.getElementById('fp-error').style.display   = 'none';
+      document.getElementById('fp-success').style.display = 'none';
+      document.getElementById('fp-email').value = document.getElementById('email').value;
+      document.getElementById('fp-pw').value    = '';
+      document.getElementById('forgot-modal').style.display = 'flex';
+    }
+
+    function closeForgotPw() {
+      document.getElementById('forgot-modal').style.display = 'none';
+    }
+
+    async function submitForgotPw() {
+      const email = document.getElementById('fp-email').value.trim().toLowerCase();
+      const pw    = document.getElementById('fp-pw').value;
+      const errEl = document.getElementById('fp-error');
+      const okEl  = document.getElementById('fp-success');
+      errEl.style.display = 'none'; okEl.style.display = 'none';
+      if (!email) { errEl.textContent = 'Please enter your email.'; errEl.style.display = 'block'; return; }
+      if (pw.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
+      const { profile, error } = await VersesDB.dbResetPassword(email, pw);
+      if (error) { errEl.textContent = error; errEl.style.display = 'block'; return; }
+      okEl.textContent = 'Password reset! You can now sign in.';
+      okEl.style.display = 'block';
+      document.getElementById('email').value    = email;
+      document.getElementById('password').value = pw;
+      setTimeout(closeForgotPw, 2000);
+    }
+
+    document.getElementById('forgot-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeForgotPw();
+    });
   </script>
 
 </body>
