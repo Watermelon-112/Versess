@@ -812,6 +812,7 @@ html, body {
   align-items: center;
   justify-content: space-around;
   padding: 0.75rem 1rem;
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
   z-index: 100;
 }
 
