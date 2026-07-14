@@ -1,0 +1,18 @@
+name: Keep Supabase Active
+
+on:
+  schedule:
+    - cron: '0 9 */3 * *'  # runs every 3 days at 9am UTC
+  workflow_dispatch:        # lets you trigger it manually from GitHub too
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          curl -s \
+            -H "apikey: sb_publishable_RphIaNAb3WFIJ1grYPxnDA_G4hSDY2d" \
+            -H "Authorization: Bearer sb_publishable_RphIaNAb3WFIJ1grYPxnDA_G4hSDY2d" \
+            "https://kexygvyawcwzajhwzxhd.supabase.co/rest/v1/profiles?select=id&limit=1"
+          echo "Supabase pinged successfully"
