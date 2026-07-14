@@ -39,7 +39,7 @@
   <div class="view active" id="view-discover">
     <div class="feed-wrapper">
       <div class="feed-header">
-        <p class="feed-greeting" id="feed-greeting">Good morning,</p>
+        <p class="feed-greeting" id="feed-greeting"></p>
         <h2 class="feed-title">Discover Voices</h2>
       </div>
       <div class="feed-container" id="feed-container"></div>
@@ -286,34 +286,41 @@
   let myMedia              = [];
   let activeTab            = 'discover';
   let profileRefreshTimer  = null;
-  let realtimeChannel      = null;
+  let profilesChannel      = null;   // Supabase Realtime for feed
+  let realtimeChannel      = null;   // Supabase Realtime for chat messages
 
   // ══ INIT ══
   document.addEventListener('DOMContentLoaded', async () => {
     SESSION = VersesApp.requireAuth();
     if (!SESSION) return;
 
-    document.getElementById('nav-user').textContent = SESSION.name;
+    const firstName = (SESSION.name || '').split(' ')[0] || 'there';
+    document.getElementById('nav-user').textContent = SESSION.name || '';
     const hour = new Date().getHours();
     const greet = hour < 12 ? 'Good morning,' : hour < 17 ? 'Good afternoon,' : 'Good evening,';
-    document.getElementById('feed-greeting').textContent = `${greet} ${SESSION.name.split(' ')[0]}.`;
+    document.getElementById('feed-greeting').textContent = `${greet} ${firstName}.`;
 
     // Load real profiles, likes, and blocks from Supabase
-    const [profiles, likes, blocks] = await Promise.all([
-      VersesDB.dbGetAllProfiles(SESSION.id),
-      VersesDB.dbGetMyLikes(SESSION.id),
-      VersesDB.dbGetMyBlocks(SESSION.id),
-    ]);
-    allProfiles = profiles;
-    likes.forEach(l => { myLikes[`${l.to_id}_${l.prompt_idx}`] = true; });
-    blocks.forEach(id => blockedIds.add(id));
+    try {
+      const [profiles, likes, blocks] = await Promise.all([
+        VersesDB.dbGetAllProfiles(SESSION.id),
+        VersesDB.dbGetMyLikes(SESSION.id),
+        VersesDB.dbGetMyBlocks(SESSION.id),
+      ]);
+      allProfiles = profiles || [];
+      (likes || []).forEach(l => { myLikes[`${l.to_id}_${l.prompt_idx}`] = true; });
+      (blocks || []).forEach(id => blockedIds.add(id));
+    } catch(e) {
+      console.error('Failed to load feed data:', e);
+      allProfiles = [];
+    }
 
     renderFeed();
     updateBadges();
 
     // ── Supabase Realtime: instant feed updates ──
     try {
-      realtimeChannel = VersesDB.getSupabase()
+      profilesChannel = VersesDB.getSupabase()
         .channel('profiles-live')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
           silentRefreshProfiles();
@@ -683,11 +690,13 @@
     document.getElementById('inbox-screen').style.display = 'none';
     document.getElementById('chat-screen').style.display  = 'flex';
 
-    // Subscribe to real-time messages
-    if (realtimeChannel) VersesDB.dbUnsubscribe(realtimeChannel);
-    realtimeChannel = VersesDB.dbSubscribeMessages(SESSION.id, profile.id, (msg) => {
-      appendBubble({ from_id: profile.id, text: msg.text, created_at: msg.created_at });
-    });
+    // Subscribe to real-time messages (separate from feed channel)
+    try {
+      if (realtimeChannel) VersesDB.dbUnsubscribe(realtimeChannel);
+      realtimeChannel = VersesDB.dbSubscribeMessages(SESSION.id, profile.id, (msg) => {
+        appendBubble({ from_id: profile.id, text: msg.text, created_at: msg.created_at });
+      });
+    } catch(e) { realtimeChannel = null; }
 
     await renderChatMessages(profile.id);
     updateBadges();
@@ -1299,7 +1308,10 @@
       return;
     }
     clearInterval(profileRefreshTimer);
-    if (realtimeChannel) VersesDB.getSupabase().removeChannel(realtimeChannel);
+    try {
+      if (profilesChannel) VersesDB.getSupabase().removeChannel(profilesChannel);
+      if (realtimeChannel) VersesDB.dbUnsubscribe(realtimeChannel);
+    } catch(e) {}
     VersesApp.clearSession();
     window.location.href = 'index.html';
   }
