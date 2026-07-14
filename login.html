@@ -100,7 +100,15 @@
       if (!email || !password) { showErr('Please fill in all fields.'); return; }
       btn.textContent = 'Signing in…'; btn.disabled = true;
       const { profile, error } = await VersesDB.dbLogin(email, password);
-      if (error) { showErr(error); btn.textContent = 'Sign in'; btn.disabled = false; return; }
+      if (error) {
+        if (error.includes('No account found')) {
+          errEl.innerHTML = 'No account found with that email. <a href="signup.html" style="color:var(--primary);font-weight:600;">Create one →</a>';
+          errEl.style.display = 'block';
+        } else {
+          showErr(error);
+        }
+        btn.textContent = 'Sign in'; btn.disabled = false; return;
+      }
       VersesApp.setSession({ id: profile.id, name: profile.name, email: profile.email });
       window.location.href = 'feed.html';
       function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'block'; }
