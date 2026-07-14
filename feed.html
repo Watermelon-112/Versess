@@ -144,8 +144,7 @@
         <!-- Voice Note -->
         <div class="profile-card">
           <div class="prompt-block" style="border-bottom:none;">
-            <p class="prompt-question" style="margin-bottom:0.3rem;">🎤 Voice prompt</p>
-            <p style="font-size:0.82rem;color:var(--text-light);font-style:italic;margin-bottom:1.2rem;">Let them hear your voice before the first message — like on Hinge.</p>
+            <p class="prompt-question" style="margin-bottom:0.8rem;">🎤 Your voice</p>
             <div id="voice-recorder-ui"></div>
           </div>
         </div>
@@ -287,6 +286,7 @@
   let myMedia              = [];
   let activeTab            = 'discover';
   let profileRefreshTimer  = null;
+  let realtimeChannel      = null;
 
   // ══ INIT ══
   document.addEventListener('DOMContentLoaded', async () => {
@@ -311,9 +311,22 @@
     renderFeed();
     updateBadges();
 
-    // Auto-refresh profiles every 45 seconds so deleted accounts disappear
-    // and updated photos/voice notes/bios appear for everyone automatically
-    profileRefreshTimer = setInterval(silentRefreshProfiles, 45000);
+    // ── Supabase Realtime: instant feed updates ──
+    realtimeChannel = VersesDB.getSupabase()
+      .channel('profiles-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        silentRefreshProfiles();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
+        updateBadges();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        updateBadges();
+      })
+      .subscribe();
+
+    // Fallback poll every 15s in case realtime misses anything
+    profileRefreshTimer = setInterval(silentRefreshProfiles, 15000);
 
     document.getElementById('reply-modal').addEventListener('click', function(e) {
       if (e.target === this) closeModal();
@@ -325,19 +338,25 @@
 
   // ── Silent background refresh ──
   async function silentRefreshProfiles() {
-    if (activeTab !== 'discover') return; // only refresh what's visible
+    if (activeTab !== 'discover') return;
     const [fresh, freshBlocks] = await Promise.all([
       VersesDB.dbGetAllProfiles(SESSION.id),
       VersesDB.dbGetMyBlocks(SESSION.id),
     ]);
     blockedIds = new Set(freshBlocks);
     allProfiles = fresh;
-    // Preserve scroll position so the page doesn't jump
-    const container = document.getElementById('feed-container');
-    const scrollY = container ? container.scrollTop : 0;
-    renderFeed();
-    if (container) container.scrollTop = scrollY;
+    const scroller = document.getElementById('view-discover');
+    const scrollY  = scroller ? scroller.scrollTop : 0;
+    renderFeed(true);
+    if (scroller) scroller.scrollTop = scrollY;
   }
+
+  // Resume on tab visibility
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && activeTab === 'discover') {
+      silentRefreshProfiles();
+    }
+  });
 
   // ══ TAB NAVIGATION ══
   function switchTab(tab) {
@@ -399,7 +418,7 @@
   }
 
   // ══ DISCOVER ══
-  function renderFeed() {
+  function renderFeed(silent = false) {
     const container = document.getElementById('feed-container');
     container.innerHTML = '';
 
@@ -415,7 +434,7 @@
     }
 
     cards.forEach((profile, idx) => {
-      container.appendChild(buildCard(profile, idx));
+      container.appendChild(buildCard(profile, idx, silent));
     });
 
     const end = document.createElement('div');
@@ -428,10 +447,10 @@
     container.appendChild(end);
   }
 
-  function buildCard(profile, animDelay) {
+  function buildCard(profile, animDelay, silent = false) {
     const card = document.createElement('div');
-    card.className = 'profile-card';
-    card.style.animationDelay = `${animDelay * 0.08}s`;
+    card.className = silent ? 'profile-card no-anim' : 'profile-card';
+    card.style.animationDelay = silent ? '0s' : `${animDelay * 0.08}s`;
 
     // Use first item from media array, or legacy photo, or placeholder
     const mediaArr = Array.isArray(profile.media) ? profile.media : [];
@@ -482,7 +501,7 @@
         <span class="voice-note-label">🎤 Voice</span>
         <div class="voice-note-bars">${Array.from({length:14},(_,i)=>`<span style="height:${6+Math.sin(i*.9)*7+Math.random()*5}px"></span>`).join('')}</div>
         <button class="voice-play-btn" style="padding:0.35rem 0.75rem;font-size:0.75rem;" onclick="playVoiceNote(this,'${profile.voice_note.replace(/'/g,'')}')">▶ Play</button>
-        <audio id="vn-${profile.id}" src="${profile.voice_note}" onended="this.previousElementSibling.textContent='▶ Play'"></audio>
+        <audio id="vn-${profile.id}" src="${profile.voice_note}" preload="auto" onended="this.previousElementSibling.textContent='▶ Play'"></audio>
       `;
       card.appendChild(vn);
     }
@@ -906,29 +925,54 @@
     }
   }
 
-  async function onRecordingStop() {
+  let pendingBlob     = null;
+  let pendingMimeType = null;
+
+  function onRecordingStop() {
     const mimeType = mediaRecorder.mimeType || 'audio/webm';
     const blob     = new Blob(audioChunks, { type: mimeType });
+    pendingBlob     = blob;
+    pendingMimeType = mimeType;
 
-    // Show uploading state immediately
+    // Show preview — do NOT upload yet
+    const previewUrl = URL.createObjectURL(blob);
     const ui = document.getElementById('voice-recorder-ui');
-    if (ui) ui.innerHTML = `<p style="color:var(--text-mid);font-size:0.85rem;text-align:center;">Uploading voice note…</p>`;
+    if (!ui) return;
+    ui.innerHTML = `
+      <p style="font-size:0.8rem;color:var(--text-mid);text-align:center;margin-bottom:0.6rem;">Preview your recording</p>
+      <audio controls src="${previewUrl}" style="width:100%;margin-bottom:0.8rem;"></audio>
+      <div style="display:flex;gap:0.6rem;">
+        <button class="voice-record-btn" style="flex:1;background:var(--primary);color:#fff;border:none;" onclick="confirmVoiceUpload()">✦ Save</button>
+        <button class="voice-record-btn" style="flex:1;background:transparent;border:1px solid var(--border);" onclick="reRecordVoice()">↺ Re-record</button>
+      </div>
+    `;
+  }
 
-    const url = await VersesDB.dbUploadMedia(SESSION.id, 'voice', blob, mimeType);
+  async function confirmVoiceUpload() {
+    if (!pendingBlob) return;
+    const ui = document.getElementById('voice-recorder-ui');
+    if (ui) ui.innerHTML = `<p style="color:var(--text-mid);font-size:0.85rem;text-align:center;">Saving…</p>`;
+
+    const url = await VersesDB.dbUploadMedia(SESSION.id, 'voice', pendingBlob, pendingMimeType);
+    pendingBlob = null; pendingMimeType = null;
     if (url) {
       saveVoiceNote(url);
       renderVoiceUI();
-      VersesApp.showToast('Voice note saved ✦');
+      VersesApp.showToast('Voice saved ✦');
     } else {
-      // Fallback: store as base64 locally
       const reader = new FileReader();
       reader.onload = (e) => {
         saveVoiceNote(e.target.result);
         renderVoiceUI();
-        VersesApp.showToast('Voice note saved ✦');
+        VersesApp.showToast('Voice saved ✦');
       };
-      reader.readAsDataURL(blob);
+      reader.readAsDataURL(pendingBlob || new Blob());
     }
+  }
+
+  function reRecordVoice() {
+    pendingBlob = null; pendingMimeType = null;
+    renderVoiceUI(); // back to idle/record button
   }
 
   function handleDeleteVoice() {
@@ -1143,8 +1187,8 @@
     // Voice note
     if (profile.voice_note) {
       html += `<div class="voice-note-card" style="margin-bottom:1.2rem;">
-        <span class="voice-note-label">🎤 Voice note</span>
-        <audio controls src="${profile.voice_note}" style="width:100%;margin-top:0.5rem;"></audio>
+        <span class="voice-note-label">🎤 Voice</span>
+        <audio controls src="${profile.voice_note}" preload="auto" style="width:100%;margin-top:0.5rem;"></audio>
       </div>`;
     }
 
@@ -1251,6 +1295,7 @@
       return;
     }
     clearInterval(profileRefreshTimer);
+    if (realtimeChannel) VersesDB.getSupabase().removeChannel(realtimeChannel);
     VersesApp.clearSession();
     window.location.href = 'index.html';
   }
