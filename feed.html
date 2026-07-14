@@ -312,18 +312,22 @@
     updateBadges();
 
     // ── Supabase Realtime: instant feed updates ──
-    realtimeChannel = VersesDB.getSupabase()
-      .channel('profiles-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        silentRefreshProfiles();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
-        updateBadges();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        updateBadges();
-      })
-      .subscribe();
+    try {
+      realtimeChannel = VersesDB.getSupabase()
+        .channel('profiles-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+          silentRefreshProfiles();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
+          updateBadges();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+          updateBadges();
+        })
+        .subscribe();
+    } catch(e) {
+      console.warn('Realtime unavailable, using polling only');
+    }
 
     // Fallback poll every 15s in case realtime misses anything
     profileRefreshTimer = setInterval(silentRefreshProfiles, 15000);
