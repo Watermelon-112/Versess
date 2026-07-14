@@ -1,40 +1,33 @@
-const CACHE_NAME = 'verses-v2';
+const CACHE_NAME = 'verses-v4';
 
-const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/signup.html',
-  '/login.html',
-  '/feed.html',
+const STATIC_ASSETS = [
   '/styles.css',
-  '/app.js',
-  '/db.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
 ];
 
-// Install: pre-cache core assets
+// Install: only cache pure static assets (CSS, icons)
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
 
-// Activate: clean up old caches
+// Activate: wipe all old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      )
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
-// Fetch: cache-first for local assets, network-first for external
+// Fetch strategy:
+// - HTML and JS files → network-first (always get the latest version)
+// - Everything else   → cache-first (CSS, icons, fonts)
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
@@ -42,25 +35,36 @@ self.addEventListener('fetch', event => {
   // Only handle same-origin requests
   if (url.origin !== location.origin) return;
 
-  event.respondWith(
-    caches.match(request).then(cached => {
-      if (cached) return cached;
+  const isHTMLorJS = url.pathname.endsWith('.html') ||
+                     url.pathname.endsWith('.js')   ||
+                     url.pathname === '/';
 
-      return fetch(request)
+  if (isHTMLorJS) {
+    // Network-first: always fetch fresh, fall back to cache if offline
+    event.respondWith(
+      fetch(request)
         .then(response => {
-          // Cache valid responses for GET requests
-          if (response && response.status === 200 && request.method === 'GET') {
+          if (response && response.status === 200) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
           }
           return response;
         })
-        .catch(() => {
-          // Offline fallback for navigation requests
-          if (request.mode === 'navigate') {
-            return caches.match('/index.html');
+        .catch(() => caches.match(request))
+    );
+  } else {
+    // Cache-first: serve from cache, update in background
+    event.respondWith(
+      caches.match(request).then(cached => {
+        const networkFetch = fetch(request).then(response => {
+          if (response && response.status === 200 && request.method === 'GET') {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
           }
+          return response;
         });
-    })
-  );
+        return cached || networkFetch;
+      })
+    );
+  }
 });
