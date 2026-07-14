@@ -284,7 +284,9 @@
   let currentReportProfile = null;
   let reportEvidenceUrl    = null;
   let selectedReason       = null;
-  let myMedia              = [];   // [{type:'photo'|'video', url:string}]
+  let myMedia              = [];
+  let activeTab            = 'discover';
+  let profileRefreshTimer  = null;
 
   // ══ INIT ══
   document.addEventListener('DOMContentLoaded', async () => {
@@ -309,6 +311,10 @@
     renderFeed();
     updateBadges();
 
+    // Auto-refresh profiles every 45 seconds so deleted accounts disappear
+    // and updated photos/voice notes/bios appear for everyone automatically
+    profileRefreshTimer = setInterval(silentRefreshProfiles, 45000);
+
     document.getElementById('reply-modal').addEventListener('click', function(e) {
       if (e.target === this) closeModal();
     });
@@ -317,13 +323,31 @@
     });
   });
 
+  // ── Silent background refresh ──
+  async function silentRefreshProfiles() {
+    if (activeTab !== 'discover') return; // only refresh what's visible
+    const [fresh, freshBlocks] = await Promise.all([
+      VersesDB.dbGetAllProfiles(SESSION.id),
+      VersesDB.dbGetMyBlocks(SESSION.id),
+    ]);
+    blockedIds = new Set(freshBlocks);
+    allProfiles = fresh;
+    // Preserve scroll position so the page doesn't jump
+    const container = document.getElementById('feed-container');
+    const scrollY = container ? container.scrollTop : 0;
+    renderFeed();
+    if (container) container.scrollTop = scrollY;
+  }
+
   // ══ TAB NAVIGATION ══
   function switchTab(tab) {
+    activeTab = tab;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.feed-nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`view-${tab}`).classList.add('active');
     document.getElementById(`nav-btn-${tab}`).classList.add('active');
 
+    if (tab === 'discover') silentRefreshProfiles();
     if (tab === 'matches')  renderMatches();
     if (tab === 'messages') renderInbox();
     if (tab === 'profile')  renderProfileEditor();
@@ -1220,7 +1244,13 @@
     if (!confirm('This will permanently delete your account and all your data. This cannot be undone.')) return;
     const secondConfirm = confirm('Are you absolutely sure? Your profile, photos, and messages will be gone forever.');
     if (!secondConfirm) return;
-    await VersesDB.dbDeleteAccount(SESSION.id);
+    VersesApp.showToast('Deleting account…');
+    const result = await VersesDB.dbDeleteAccount(SESSION.id);
+    if (result && result.success === false) {
+      VersesApp.showToast('Could not delete — please run the latest SQL in Supabase first.');
+      return;
+    }
+    clearInterval(profileRefreshTimer);
     VersesApp.clearSession();
     window.location.href = 'index.html';
   }
