@@ -223,7 +223,9 @@ async function dbUploadMedia(userId, blob, mimeType) {
 }
 
 async function dbUploadVoice(userId, blob, mimeType) {
-  const ext  = mimeType.includes('ogg') ? 'ogg' : 'webm';
+  let ext = 'webm';
+  if (mimeType.includes('ogg'))  ext = 'ogg';
+  if (mimeType.includes('mp4'))  ext = 'mp4';   // iOS Safari records as mp4
   const path = `${userId}/voice.${ext}`;
   const { error } = await sb().storage.from('media')
     .upload(path, blob, { upsert: true, contentType: mimeType });
@@ -237,7 +239,8 @@ async function dbDeleteMedia(userId) {
 }
 
 async function dbDeleteVoice(userId) {
-  await sb().storage.from('media').remove([`${userId}/voice.webm`, `${userId}/voice.ogg`]);
+  await sb().storage.from('media')
+    .remove([`${userId}/voice.webm`, `${userId}/voice.ogg`, `${userId}/voice.mp4`]);
 }
 
 async function dbUploadEvidence(reporterId, blob, mimeType) {
