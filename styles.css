@@ -1108,11 +1108,10 @@ html, body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 5.5rem 1rem 1rem;
+  padding: 5.5rem 1rem 6rem;
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
-  padding-bottom: 5rem;
 }
 
 .chat-empty {
@@ -1166,7 +1165,7 @@ html, body {
 
 .chat-input-bar {
   position: fixed;
-  bottom: 64px;
+  bottom: 0;
   left: 0;
   right: 0;
   background: rgba(253, 248, 243, 0.97);
@@ -1176,6 +1175,7 @@ html, body {
   align-items: flex-end;
   gap: 0.6rem;
   padding: 0.7rem 1rem;
+  padding-bottom: calc(0.7rem + env(safe-area-inset-bottom));
   z-index: 90;
 }
 .chat-input {
