@@ -46,8 +46,8 @@ async function dbDeleteAccount(id) {
   await sb().from('messages').delete().or(`from_id.eq.${id},to_id.eq.${id}`);
   await sb().from('blocks').delete().or(`blocker_id.eq.${id},blocked_id.eq.${id}`);
   await sb().from('reports').delete().or(`reporter_id.eq.${id},reported_id.eq.${id}`);
-  // Set the RLS claim so the delete policy allows this specific row
-  await sb().rpc('set_app_user_id', { user_id: id });
+  // Try RPC-based delete first; fall back to direct delete if RPC not installed
+  try { await sb().rpc('set_app_user_id', { user_id: id }); } catch(e) {}
   const { error } = await sb().from('profiles').delete().eq('id', id);
   if (error) { console.error('dbDeleteAccount failed:', error); return { success: false, error: error.message }; }
   localStorage.removeItem(`verses_pw_${id}`);
