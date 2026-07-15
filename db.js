@@ -222,8 +222,22 @@ async function dbUploadMedia(userId, blob, mimeType) {
   return data.publicUrl;
 }
 
+async function dbUploadVoice(userId, blob, mimeType) {
+  const ext  = mimeType.includes('ogg') ? 'ogg' : 'webm';
+  const path = `${userId}/voice.${ext}`;
+  const { error } = await sb().storage.from('media')
+    .upload(path, blob, { upsert: true, contentType: mimeType });
+  if (error) { console.error('dbUploadVoice', error); return null; }
+  const { data } = sb().storage.from('media').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 async function dbDeleteMedia(userId) {
   await sb().storage.from('media').remove([`${userId}/photo.jpg`, `${userId}/photo.webm`]);
+}
+
+async function dbDeleteVoice(userId) {
+  await sb().storage.from('media').remove([`${userId}/voice.webm`, `${userId}/voice.ogg`]);
 }
 
 async function dbUploadEvidence(reporterId, blob, mimeType) {
@@ -244,6 +258,7 @@ window.VersesDB = {
   dbGetMyBlocks, dbBlockUser,
   dbReport, dbGetAllReports, dbDeleteReport,
   dbLogin, dbSignup, dbResetPassword,
-  dbUploadMediaSlot, dbDeleteMediaSlot, dbUploadMedia, dbDeleteMedia, dbUploadEvidence,
+  dbUploadMediaSlot, dbDeleteMediaSlot, dbUploadMedia, dbDeleteMedia,
+  dbUploadVoice, dbDeleteVoice, dbUploadEvidence,
   dbGetThread, dbSendMessage, dbGetAllThreads, dbSubscribeMessages, dbUnsubscribe,
 };
