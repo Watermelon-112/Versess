@@ -567,7 +567,13 @@
       myLikes[likeKey] = true;
       btn.classList.add('liked');
       btn.innerHTML = '♥ Liked';
-      VersesApp.showToast(`You liked ${profile.name}'s verse ♥`);
+      // Check if this created a mutual match
+      const isMutual = await VersesDB.dbCheckMutualMatch(SESSION.id, profile.id);
+      if (isMutual) {
+        showMatchCelebration(profile.name);
+      } else {
+        VersesApp.showToast(`You liked ${profile.name}'s verse ♥`);
+      }
     } else {
       delete myLikes[likeKey];
       btn.classList.remove('liked');
@@ -575,6 +581,33 @@
       VersesApp.showToast('Like removed');
     }
     updateBadges();
+  }
+
+  function showMatchCelebration(name) {
+    const el = document.createElement('div');
+    el.style.cssText = `
+      position:fixed;inset:0;z-index:9999;background:rgba(74,44,42,0.82);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      backdrop-filter:blur(6px);animation:fadeIn .3s ease;
+    `;
+    el.innerHTML = `
+      <div style="text-align:center;color:#FDF8F3;padding:2rem;">
+        <div style="font-size:3.5rem;margin-bottom:1rem;">✦</div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:2rem;margin-bottom:0.4rem;">It's a match!</h2>
+        <p style="font-family:'Lato',sans-serif;font-size:1rem;opacity:0.85;margin-bottom:2rem;">
+          You and ${name} both liked each other's verses.
+        </p>
+        <button onclick="this.closest('div[style]').remove();switchTab('messages');"
+          style="background:#FDF8F3;color:#4A2C2A;border:none;padding:0.85rem 2rem;border-radius:50px;font-family:'Lato',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;margin-right:0.8rem;">
+          💬 Send a message
+        </button>
+        <button onclick="this.closest('div[style]').remove();"
+          style="background:transparent;color:#FDF8F3;border:2px solid rgba(253,248,243,0.5);padding:0.85rem 2rem;border-radius:50px;font-family:'Lato',sans-serif;font-size:1rem;cursor:pointer;">
+          Keep browsing
+        </button>
+      </div>
+    `;
+    document.body.appendChild(el);
   }
 
   // ══ MATCHES ══
@@ -589,9 +622,9 @@
 
     if (allMatched.length === 0) {
       container.innerHTML = `<div class="empty-state">
-        <div class="empty-icon">💌</div>
+        <div class="empty-icon">✦</div>
         <h3 class="empty-title">No matches yet</h3>
-        <p class="empty-sub">Like a verse in the Discover tab to start a connection.</p>
+        <p class="empty-sub">Like someone's verse — when they like you back, it's a match and you can message.</p>
       </div>`;
       return;
     }
@@ -792,6 +825,13 @@
   }
   function deleteVoiceNote() {
     localStorage.removeItem(`verses_voice_${SESSION.id}`);
+    localStorage.removeItem(`verses_voice_dur_${SESSION.id}`);
+  }
+  function saveVoiceDur(secs) {
+    localStorage.setItem(`verses_voice_dur_${SESSION.id}`, String(secs));
+  }
+  function getVoiceDur() {
+    return parseInt(localStorage.getItem(`verses_voice_dur_${SESSION.id}`)) || 0;
   }
 
   // ── Photo upload ──
@@ -867,13 +907,15 @@
     const saved = getVoiceNote();
 
     if (saved) {
+      const totalSecs = getVoiceDur();
+      const totalLabel = formatTime(totalSecs);
       ui.innerHTML = `
         <div class="voice-player-row">
           <button class="voice-play-btn" id="voice-play-btn" onclick="toggleVoicePlay()">▶ Play</button>
           <div class="voice-bars">
             ${Array.from({length: 18}, (_, i) => `<span style="height:${8 + Math.sin(i * 0.9) * 8 + Math.random() * 6}px"></span>`).join('')}
           </div>
-          <span class="voice-dur" id="voice-dur">0:00</span>
+          <span class="voice-dur" id="voice-dur">0:00 / ${totalLabel}</span>
         </div>
         <button class="voice-delete-btn" onclick="handleDeleteVoice()">× Remove voice note</button>
         <audio id="voice-audio" src="${saved}" onended="onVoiceEnded()" ontimeupdate="updateVoiceDur()"></audio>
@@ -943,17 +985,21 @@
   let pendingMimeType = null;
 
   function onRecordingStop() {
-    const mimeType = mediaRecorder.mimeType || 'audio/webm';
-    const blob     = new Blob(audioChunks, { type: mimeType });
+    // Normalise mimeType — strip codec params for storage compatibility
+    const rawMime   = mediaRecorder.mimeType || 'audio/webm';
+    const mimeType  = rawMime.split(';')[0].trim();   // e.g. "audio/webm"
+    const blob      = new Blob(audioChunks, { type: mimeType });
     pendingBlob     = blob;
     pendingMimeType = mimeType;
+    // recordingSeconds already reflects the actual recorded length
 
-    // Show preview — do NOT upload yet
-    const previewUrl = URL.createObjectURL(blob);
+    // Show preview with stored duration label
+    const previewUrl  = URL.createObjectURL(blob);
+    const durLabel    = formatTime(recordingSeconds);
     const ui = document.getElementById('voice-recorder-ui');
     if (!ui) return;
     ui.innerHTML = `
-      <p style="font-size:0.8rem;color:var(--text-mid);text-align:center;margin-bottom:0.6rem;">Preview your recording</p>
+      <p style="font-size:0.8rem;color:var(--text-mid);text-align:center;margin-bottom:0.4rem;">Preview · ${durLabel}</p>
       <audio controls src="${previewUrl}" style="width:100%;margin-bottom:0.8rem;"></audio>
       <div style="display:flex;gap:0.6rem;">
         <button class="voice-record-btn" style="flex:1;background:var(--dark-brown);color:#fff;border:none;" onclick="confirmVoiceUpload()">✦ Save</button>
@@ -967,16 +1013,19 @@
     const ui = document.getElementById('voice-recorder-ui');
     if (ui) ui.innerHTML = `<p style="color:var(--text-mid);font-size:0.85rem;text-align:center;">Saving…</p>`;
 
+    const savedDur  = recordingSeconds;   // capture before anything clears it
     const url = await VersesDB.dbUploadVoice(SESSION.id, pendingBlob, pendingMimeType);
     pendingBlob = null; pendingMimeType = null;
     if (url) {
       saveVoiceNote(url);
-      // Auto-save voice_note URL to the profile so others can hear it immediately
+      saveVoiceDur(savedDur);
+      // Auto-save to profile so others see it immediately
       await VersesDB.dbUpdateProfile(SESSION.id, { voice_note: url });
       renderVoiceUI();
       VersesApp.showToast('Voice saved ✦');
     } else {
-      VersesApp.showToast('Upload failed — check storage permissions');
+      renderVoiceUI();
+      VersesApp.showToast('Upload failed — check Supabase storage permissions');
     }
   }
 
@@ -1006,12 +1055,18 @@
   function onVoiceEnded() {
     const btn = document.getElementById('voice-play-btn');
     if (btn) btn.textContent = '▶ Play';
+    // Reset timer display back to 0:00 / total
+    const dur = document.getElementById('voice-dur');
+    if (dur) dur.textContent = `0:00 / ${formatTime(getVoiceDur())}`;
   }
 
   function updateVoiceDur() {
     const audio = document.getElementById('voice-audio');
     const dur   = document.getElementById('voice-dur');
-    if (audio && dur) dur.textContent = formatTime(Math.floor(audio.currentTime));
+    if (audio && dur) {
+      const total = getVoiceDur();
+      dur.textContent = `${formatTime(Math.floor(audio.currentTime))} / ${formatTime(total)}`;
+    }
   }
 
   function formatTime(s) {
@@ -1337,24 +1392,42 @@
 
     if (currentReplyContext) {
       const profile = currentReplyContext.profile;
-
-      // Send the message via Supabase (only real DB profiles have UUID ids)
       const isRealProfile = /^[0-9a-f-]{36}$/.test(String(profile.id));
+
       if (isRealProfile) {
-        await VersesDB.dbSendMessage(SESSION.id, profile.id, text);
-        // Also like them on prompt 0 if not already
-        if (!myLikes[`${profile.id}_0`]) {
-          const liked = await VersesDB.dbToggleLike(SESSION.id, profile.id, 0);
-          if (liked) myLikes[`${profile.id}_0`] = true;
+        // Check for mutual match before allowing messages
+        const isMutual = await VersesDB.dbCheckMutualMatch(SESSION.id, profile.id);
+        if (!isMutual) {
+          // Not matched yet — send a like instead and explain
+          if (!myLikes[`${profile.id}_0`]) {
+            const liked = await VersesDB.dbToggleLike(SESSION.id, profile.id, 0);
+            if (liked) {
+              myLikes[`${profile.id}_0`] = true;
+              // Check if that like just created a mutual match
+              const nowMutual = await VersesDB.dbCheckMutualMatch(SESSION.id, profile.id);
+              if (nowMutual) {
+                closeModal();
+                showMatchCelebration(profile.name);
+                updateBadges();
+                return;
+              }
+            }
+          }
+          closeModal();
+          updateBadges();
+          VersesApp.showToast(`Like sent to ${profile.name} ✦ — message when they like you back`);
+          return;
         }
+        // Mutually matched — send the message
+        await VersesDB.dbSendMessage(SESSION.id, profile.id, text);
       }
 
       updateBadges();
       closeModal();
-      VersesApp.showToast(`Reply sent to ${profile.name} ✦`);
+      VersesApp.showToast(`Message sent to ${profile.name} ✦`);
     } else {
       closeModal();
-      VersesApp.showToast('Reply sent ✦');
+      VersesApp.showToast('Sent ✦');
     }
   }
   </script>
