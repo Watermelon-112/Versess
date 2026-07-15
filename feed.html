@@ -956,8 +956,8 @@
       <p style="font-size:0.8rem;color:var(--text-mid);text-align:center;margin-bottom:0.6rem;">Preview your recording</p>
       <audio controls src="${previewUrl}" style="width:100%;margin-bottom:0.8rem;"></audio>
       <div style="display:flex;gap:0.6rem;">
-        <button class="voice-record-btn" style="flex:1;background:var(--primary);color:#fff;border:none;" onclick="confirmVoiceUpload()">✦ Save</button>
-        <button class="voice-record-btn" style="flex:1;background:transparent;border:1px solid var(--border);" onclick="reRecordVoice()">↺ Re-record</button>
+        <button class="voice-record-btn" style="flex:1;background:var(--dark-brown);color:#fff;border:none;" onclick="confirmVoiceUpload()">✦ Save</button>
+        <button class="voice-record-btn" style="flex:1;background:transparent;border:1px solid var(--medium-brown);color:var(--dark-brown);" onclick="reRecordVoice()">↺ Re-record</button>
       </div>
     `;
   }
@@ -967,20 +967,16 @@
     const ui = document.getElementById('voice-recorder-ui');
     if (ui) ui.innerHTML = `<p style="color:var(--text-mid);font-size:0.85rem;text-align:center;">Saving…</p>`;
 
-    const url = await VersesDB.dbUploadMedia(SESSION.id, pendingBlob, pendingMimeType);
+    const url = await VersesDB.dbUploadVoice(SESSION.id, pendingBlob, pendingMimeType);
     pendingBlob = null; pendingMimeType = null;
     if (url) {
       saveVoiceNote(url);
+      // Auto-save voice_note URL to the profile so others can hear it immediately
+      await VersesDB.dbUpdateProfile(SESSION.id, { voice_note: url });
       renderVoiceUI();
       VersesApp.showToast('Voice saved ✦');
     } else {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        saveVoiceNote(e.target.result);
-        renderVoiceUI();
-        VersesApp.showToast('Voice saved ✦');
-      };
-      reader.readAsDataURL(pendingBlob || new Blob());
+      VersesApp.showToast('Upload failed — check storage permissions');
     }
   }
 
@@ -989,10 +985,13 @@
     renderVoiceUI(); // back to idle/record button
   }
 
-  function handleDeleteVoice() {
+  async function handleDeleteVoice() {
     deleteVoiceNote();
     renderVoiceUI();
-    VersesDB.dbDeleteMedia(SESSION.id, 'voice');
+    await Promise.all([
+      VersesDB.dbDeleteVoice(SESSION.id),
+      VersesDB.dbUpdateProfile(SESSION.id, { voice_note: null }),
+    ]);
     VersesApp.showToast('Voice note removed');
   }
 
