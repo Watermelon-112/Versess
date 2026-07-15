@@ -688,6 +688,7 @@
 
     document.getElementById('inbox-screen').style.display = 'none';
     document.getElementById('chat-screen').style.display  = 'flex';
+    document.querySelector('.feed-nav').style.display     = 'none';
 
     // Subscribe to real-time messages (separate from feed channel)
     try {
@@ -707,6 +708,7 @@
     activeChatProfile   = null;
     document.getElementById('chat-screen').style.display  = 'none';
     document.getElementById('inbox-screen').style.display = 'block';
+    document.querySelector('.feed-nav').style.display     = '';
     renderInbox();
   }
 
@@ -965,7 +967,7 @@
     const ui = document.getElementById('voice-recorder-ui');
     if (ui) ui.innerHTML = `<p style="color:var(--text-mid);font-size:0.85rem;text-align:center;">Saving…</p>`;
 
-    const url = await VersesDB.dbUploadMedia(SESSION.id, 'voice', pendingBlob, pendingMimeType);
+    const url = await VersesDB.dbUploadMedia(SESSION.id, pendingBlob, pendingMimeType);
     pendingBlob = null; pendingMimeType = null;
     if (url) {
       saveVoiceNote(url);
