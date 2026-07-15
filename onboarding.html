@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Verses</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#4A2C2A" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #4A2C2A;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Lato', sans-serif;
+      overflow: hidden;
+    }
+
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Lato:wght@300;400;700&display=swap');
+
+    .ob-wrapper {
+      width: 100%;
+      max-width: 420px;
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100dvh;
+      justify-content: space-between;
+    }
+
+    .ob-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      letter-spacing: 0.25em;
+      color: rgba(253,248,243,0.6);
+      padding-top: 1rem;
+    }
+
+    /* Slides */
+    .ob-slides {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .ob-slide {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      animation: slideIn 0.4s ease;
+    }
+    .ob-slide.active { display: flex; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .ob-icon {
+      font-size: 4rem;
+      margin-bottom: 1.5rem;
+      line-height: 1;
+    }
+
+    .ob-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.9rem;
+      color: #FDF8F3;
+      margin-bottom: 0.8rem;
+      line-height: 1.25;
+    }
+
+    .ob-title em { font-style: italic; color: #C8A27A; }
+
+    .ob-body {
+      font-size: 1rem;
+      color: rgba(253,248,243,0.78);
+      line-height: 1.65;
+      max-width: 320px;
+    }
+
+    .ob-card {
+      background: rgba(253,248,243,0.1);
+      border: 1px solid rgba(253,248,243,0.18);
+      border-radius: 18px;
+      padding: 1.1rem 1.4rem;
+      margin-top: 1.6rem;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .ob-card-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.9rem;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(253,248,243,0.1);
+    }
+    .ob-card-row:last-child { border-bottom: none; }
+
+    .ob-card-icon {
+      font-size: 1.3rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    .ob-card-text {
+      color: rgba(253,248,243,0.85);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .ob-card-text strong {
+      color: #FDF8F3;
+      display: block;
+      margin-bottom: 0.1rem;
+    }
+
+    /* Dots */
+    .ob-dots {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .ob-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(253,248,243,0.3);
+      transition: background 0.3s, width 0.3s;
+    }
+    .ob-dot.active {
+      background: #C8A27A;
+      width: 22px;
+      border-radius: 4px;
+    }
+
+    /* Buttons */
+    .ob-btn {
+      width: 100%;
+      max-width: 320px;
+      padding: 1rem;
+      border: none;
+      border-radius: 50px;
+      font-family: 'Lato', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+      margin-bottom: 0.75rem;
+    }
+    .ob-btn:active { transform: scale(0.97); }
+
+    .ob-btn-primary {
+      background: #FDF8F3;
+      color: #4A2C2A;
+    }
+
+    .ob-btn-skip {
+      background: transparent;
+      color: rgba(253,248,243,0.55);
+      font-size: 0.9rem;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+<div class="ob-wrapper">
+  <div class="ob-logo">VERSES</div>
+
+  <div class="ob-slides">
+
+    <!-- Slide 1 -->
+    <div class="ob-slide active" id="slide-0">
+      <div class="ob-icon">✦</div>
+      <h1 class="ob-title">Welcome to<br /><em>Verses</em></h1>
+      <p class="ob-body">
+        A place where words create connection. Here's how it works in three simple ideas.
+      </p>
+    </div>
+
+    <!-- Slide 2 -->
+    <div class="ob-slide" id="slide-1">
+      <div class="ob-icon">♥</div>
+      <h1 class="ob-title">Like a <em>verse</em>,<br />not a face</h1>
+      <p class="ob-body">
+        Browse the Discover tab and read people's prompts — their words, not just their photos.
+        When something moves you, tap <strong style="color:#C8A27A;">♥ Like Verse</strong>.
+      </p>
+      <div class="ob-card">
+        <div class="ob-card-row">
+          <span class="ob-card-icon">✦</span>
+          <div class="ob-card-text">
+            <strong>Reply to a prompt</strong>
+            Write a reply to someone's verse to show real interest
+          </div>
+        </div>
+        <div class="ob-card-row">
+          <span class="ob-card-icon">🎤</span>
+          <div class="ob-card-text">
+            <strong>Hear their voice</strong>
+            Play their voice note to feel the person behind the words
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 3 -->
+    <div class="ob-slide" id="slide-2">
+      <div class="ob-icon">💬</div>
+      <h1 class="ob-title">Match, then<br /><em>connect</em></h1>
+      <p class="ob-body">
+        When two people like each other's verses it becomes a <strong style="color:#C8A27A;">match</strong> — and only then can you message each other.
+      </p>
+      <div class="ob-card">
+        <div class="ob-card-row">
+          <span class="ob-card-icon">✦</span>
+          <div class="ob-card-text">
+            <strong>You like their verse</strong>
+            They get notified and can see your profile
+          </div>
+        </div>
+        <div class="ob-card-row">
+          <span class="ob-card-icon">♥</span>
+          <div class="ob-card-text">
+            <strong>They like you back</strong>
+            It's a match — head to Matches to start chatting
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 4 -->
+    <div class="ob-slide" id="slide-3">
+      <div class="ob-icon">🎤</div>
+      <h1 class="ob-title">Make your <em>voice</em><br />stand out</h1>
+      <p class="ob-body">
+        The best way to get noticed? Fill in your prompts and record a voice note. People match faster when they can hear who you really are.
+      </p>
+      <div class="ob-card">
+        <div class="ob-card-row">
+          <span class="ob-card-icon">📝</span>
+          <div class="ob-card-text">
+            <strong>Write your prompts</strong>
+            Answer the questions in your Profile tab — your words are your first impression
+          </div>
+        </div>
+        <div class="ob-card-row">
+          <span class="ob-card-icon">🎤</span>
+          <div class="ob-card-text">
+            <strong>Record a voice note</strong>
+            Up to 30 seconds — say anything, read a line of poetry, just talk
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="display:flex;flex-direction:column;align-items:center;width:100%;">
+    <div class="ob-dots">
+      <div class="ob-dot active" id="dot-0"></div>
+      <div class="ob-dot" id="dot-1"></div>
+      <div class="ob-dot" id="dot-2"></div>
+      <div class="ob-dot" id="dot-3"></div>
+    </div>
+
+    <button class="ob-btn ob-btn-primary" id="next-btn" onclick="nextSlide()">
+      Get started
+    </button>
+    <button class="ob-btn ob-btn-skip" id="skip-btn" onclick="goToFeed()">
+      Skip
+    </button>
+  </div>
+</div>
+
+<script>
+  let current = 0;
+  const total = 4;
+  const labels = ['Get started', 'Next', 'Next', 'Go to my feed ✦'];
+
+  function nextSlide() {
+    if (current >= total - 1) { goToFeed(); return; }
+    document.getElementById(`slide-${current}`).classList.remove('active');
+    document.getElementById(`dot-${current}`).classList.remove('active');
+    current++;
+    document.getElementById(`slide-${current}`).classList.add('active');
+    document.getElementById(`dot-${current}`).classList.add('active');
+    document.getElementById('next-btn').textContent = labels[current];
+    document.getElementById('skip-btn').style.display = current === total - 1 ? 'none' : '';
+  }
+
+  function goToFeed() {
+    window.location.href = 'feed.html';
+  }
+
+  // Allow swiping through slides
+  let startX = 0;
+  document.addEventListener('touchstart', e => { startX = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    if (dx < -40) nextSlide();
+  });
+</script>
+</body>
+</html>
